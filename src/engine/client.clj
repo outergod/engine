@@ -34,14 +34,14 @@
    (js/js
     (require ["ace/ace-uncompressed" "socket.io/socket.io"]
              (fn []
-               (require ["engine/keyboard" "ace/edit_session" "pilot/event" "engine/commands/default-commands" "ace/theme-twilight"]
-                        (fn [keyboard edit event]
+               (require ["engine/keyboard" "ace/ace" "ace/edit_session" "ace/lib/event" "engine/commands/default-commands" "ace/theme-twilight"]
+                        (fn [keyboard ace edit event]
                           (let [editor (.edit ace "editor")
                                 session (get edit "EditSession")]
                             (set! editor.io (.connect io)
                                   editor.bufferName "foo")
                             (.setTheme editor "ace/theme/twilight")
-                            (.setKeyboardHandler editor (keyboard editor))
+                            ;(.setKeyboardHandler editor (keyboard editor))
                             (.setShowGutter editor.renderer false)
                             (.setShowPrintMargin editor.renderer false)
                             (.emit editor.io "load-buffer" "foo"
