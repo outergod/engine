@@ -7,7 +7,9 @@
                  [compojure "0.6.4"]
                  [org.clojars.kriyative/clojurejs "1.2.10"]
                  [hiccup "0.3.7"]
-                 [cssgen "0.2.5"]]
+                 [cssgen "0.2.5"]
+                 [org.clojure/tools.logging "0.2.3"]
+                 [clj-logging-config "1.9.6"]]
   :dev-dependencies [[ring/ring-devel "1.0.0-RC1"]]
   :resources-path "resources"
   :repl-init engine.repl-init

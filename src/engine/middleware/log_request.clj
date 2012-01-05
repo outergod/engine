@@ -1,6 +1,7 @@
-(ns engine.middleware.log-request)
+(ns engine.middleware.log-request
+  (:use [clojure.tools.logging :only [debug]]))
 
 (defn log [handler]
   (fn [request]
-    (println (format "Current request is %s" request))
+    (debug (format "Current request is %s" request))
     (handler request)))
