@@ -39,6 +39,24 @@
 (defn translate-message-type [type]
   (message-types (Integer/parseInt type)))
 
+(let [message-splitter #"^([^\+]*)(?:\+?(.*))"]
+  (defn translate-ack [data]
+    (let [[_ id data] (re-matches message-splitter data)]
+      [(Integer/parseInt id) data]))
+  (defn translate-error [data]
+    (rest (re-matches message-splitter data))))
+
+(let [message-scanner #"^(\d):(\d+)?(\+)?:([^:]+)?(?::(.+))?"]
+  (defn translate-message [message]
+    (when message ; receiving nil upon closing, bug in lamina or aleph?
+      (log/debug (format "message is [%s]" message))
+      (if-let [[_ type id data-ack endpoint data] (re-matches message-scanner message)]
+        (let [id (and (not (empty? id))
+                      (Integer/parseInt id))
+              data-ack (not (empty? data-ack))]
+          [(translate-message-type type) id data-ack endpoint data])
+        (log/error (format "Received malformed message %s" message))))))
+
 (defmulti websocket-message (fn [type & rest] (class type)))
 (defmethod websocket-message Integer
   [type & {:keys [id endpoint data] :or {id "" endpoint ""}}]
@@ -52,16 +70,26 @@
 
 (defn websocket-send [socket type & message-args]
   {:pre [(instance? WebsocketChannel socket)]}
-  (let [seq-args ((:sequencer socket) type message-args)]
-    (enqueue (:channel socket)
+  (let [seq-args ((:sequencer socket) type message-args)
+        channel (:channel socket)
+        endpoint (:endpoint socket)
+        {:keys [id callback]} seq-args]
+    (when (and callback id)
+      (receive (->> channel
+                    (map* translate-message)
+                    (filter* #(= :ack (first %1))) ; [type _ _ _ _]
+                    (map* #(translate-ack (last %1))) ; [_ _ _ _ data]
+                    (filter* #(= id (first %1))) ; [id data]
+                    (map* second)) 
+               callback))
+    (enqueue channel
              (apply websocket-message type
-                    (into seq-args [:endpoint (:endpoint socket)])))
-    (:id seq-args)))
+                    (into seq-args [:endpoint endpoint])))))
 
 (defn websocket-sequencer []
   (let [counter (atom 0)]
     (fn [type message]
-      (if (#{:message :json-message :event} (message-types type))
+      (if (#{:message :json-message :event} type)
         (concat message [:id (swap! counter inc)])
         message))))
 
@@ -74,11 +102,16 @@
 (defn send-heartbeat [socket]
   (websocket-send socket :heartbeat))
 
-(defn send-message [socket data]
-  (websocket-send socket :data (message data)))
+(defn send-message
+  ([socket data] (websocket-send socket :message :data (message data)))
+  ([socket data callback] (websocket-send socket :message :data (message data) :callback callback)))
 
-(defn send-event [socket name args]
-  (websocket-send socket :event :data (encode-json->string {:name name :args args})))
+(defn send-event
+  ([socket name args]
+     (websocket-send socket :event :data (encode-json->string {:name name :args args})))
+  ([socket name args callback]
+     (websocket-send socket :event :data (encode-json->string {:name name :args args})
+                     :callback callback)))
 
 (defn send-ack
   ([socket id] (websocket-send socket :ack :data (str id)))
@@ -130,45 +163,32 @@
         (and data data-ack?) (send-ack socket id data)
         id (send-ack socket id)))
 
-(let [message-scanner #"^(\d):(\d+)?(\+)?:([^:]+)?(?::(.+))?"]
-  (defn translate-message [message]
-    (when message ; receiving nil upon closing, bug in lamina or aleph?
-      (log/debug (format "message is [%s]" message))
-      (if-let [[_ type id data-ack endpoint data] (re-matches message-scanner message)]
-        (let [id (and (not (empty? id))
-                      (Integer/parseInt id))
-              data-ack (not (empty? data-ack))]
-          [(translate-message-type type) id data-ack endpoint data])
-        (log/error (format "Received malformed message %s" message))))))
-
 (defn message-handler [socket dispatcher]
-  (let [message-splitter #"^([^\+]*)(?:\+?(.*))"]
-    (fn [message]
-      (when-let [[type id data-ack endpoint data] (translate-message message)]
-        (case type
-          :disconnect (close (:channel socket))
-          :connect (send-error socket "Additional endpoints not supported" "Just don't try again, bitch!")
-          :heartbeat (log/debug "Client sent heartbeat")
-          :message (do
-                     (log/debug (str "Client sent message " data))
-                     (handle-ack socket id (dispatcher "message" data) data-ack))
-          :json-message (do
-                          (log/debug (str "Client sent JSON message " data))
-                          (handle-ack socket id (apply dispatcher "message" (decode-json data)) data-ack))
-          :event (do
-                   (log/debug (str "Client sent event message " data))
-                   (let [{:keys [name args]} (decode-json data)]
-                     (if (reserved-event-types name)
-                       (send-error socket (format "Event name %s is reserved" name))
-                       (handle-ack socket id (apply dispatcher name args) data-ack))))
-          :ack  (let [[_ id data] (re-matches message-splitter data)
-                      id (Integer/parseInt id)]
-                  (log/debug (format "Client acknowledged %d\nData: %s" id data))
-                  (apply dispatcher "ack" id (decode-json data)))
-          :error (let [[_ reason advice] (re-matches message-splitter data)]
-                   (log/error (format "Client signalled an error %s\nAdvice: %s" reason advice)))
-          :noop (log/debug "Client sent noop (whatever)")
-          (log/error (format "Ignoring unknown type %s for message %s" type message)))))))
+  (fn [message]
+    (when-let [[type id data-ack endpoint data] (translate-message message)]
+      (case type
+        :disconnect (close (:channel socket))
+        :connect (send-error socket "Additional endpoints not supported" "Just don't try again, bitch!")
+        :heartbeat (log/debug "Client sent heartbeat")
+        :message (do
+                   (log/debug (str "Client sent message " data))
+                   (handle-ack socket id (dispatcher "message" data) data-ack))
+        :json-message (do
+                        (log/debug (str "Client sent JSON message " data))
+                        (handle-ack socket id (apply dispatcher "message" (decode-json data)) data-ack))
+        :event (do
+                 (log/debug (str "Client sent event message " data))
+                 (let [{:keys [name args]} (decode-json data)]
+                   (if (reserved-event-types name)
+                     (send-error socket (format "Event name %s is reserved" name))
+                     (handle-ack socket id (apply dispatcher name args) data-ack))))
+        :ack  (let [[id data] (translate-ack data)]
+                (log/debug (format "Client acknowledged %d\nData: %s" id data))
+                (apply dispatcher "ack" id (decode-json data)))
+        :error (let [[reason advice] (translate-error data)]
+                 (log/error (format "Client signalled an error %s\nAdvice: %s" reason advice)))
+        :noop (log/debug "Client sent noop (whatever)")
+        (log/error (format "Ignoring unknown type %s for message %s" type message))))))
 
 (defn socket [dispatcher]
   (fn [channel request]
