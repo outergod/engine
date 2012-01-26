@@ -116,7 +116,7 @@
 (defn send-ack
   ([socket id] (websocket-send socket :ack :data (str id)))
   ([socket id data]
-     (websocket-send socket :ack :data (format "%d+%s" id (encode-json->string data)))))
+     (websocket-send socket :ack :data (format "%d+%s" id (encode-json->string (if (sequential? data) data [data]))))))
 
 (defn send-error
   ([socket reason] (websocket-send socket :error :data reason))

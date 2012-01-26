@@ -41,14 +41,20 @@
                             (set! editor.io (.connect io)
                                   editor.bufferName "foo")
                             (.setTheme editor "ace/theme/twilight")
-                            ;(.setKeyboardHandler editor (keyboard editor))
+                            (.setKeyboardHandler editor (keyboard editor))
                             (.setShowGutter editor.renderer false)
                             (.setShowPrintMargin editor.renderer false)
                             (.emit editor.io "load-buffer" "foo"
                                    (fn [contents position]
-                                     (.setSession editor (new Session contents))
-                                     (.moveCursorTo editor (get position row) (get position column))))))))))))
+                                     (.setSession editor (new session contents))
+                                     (.moveCursorTo editor (get position "row") (get position "column"))))))))))))
 
 (defjshandler keyboard
-; TODO
-  (define))
+  (define []
+    (fn []
+      (fn [editor]
+        {handleKeyboard (fn [data hash-id text-or-key key-code]
+                          (.emit editor.io "keyboard" hash-id text-or-key key-code (get editor "bufferName")
+                                 (fn [response]
+                                   (.exec editor.commands (get response "command") {editor editor} (get response "args"))))
+                          {command "noop"})}))))
