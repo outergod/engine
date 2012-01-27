@@ -10,7 +10,8 @@
                  [cssgen "0.2.5"]
                  [org.clojure/tools.logging "0.2.3"]
                  [clj-logging-config "1.9.6"]]
-  :dev-dependencies [[ring/ring-devel "1.0.0-RC1"]]
+  :dev-dependencies [[ring/ring-devel "1.0.0-RC1"]
+                     [lacij "0.6.0"]]
   :resources-path "resources"
   :repl-init engine.repl-init
   :license {:name "GNU Affero General Public License v3 (or later)"
