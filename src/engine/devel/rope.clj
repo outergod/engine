@@ -40,24 +40,6 @@
   ([coll rebalance?]
      (-> (if rebalance? (rope-rebalance coll) coll) rope->graph view svgdoc->string)))
 
-(defdispatcher "/devel/test.svg"
-  (fn [request]
-    {:status 200
-     :content-type "image/svg+xml"
-     :body
-     (-> (create-graph)
-         (add-node :athena "Athena" 10 30)
-         (add-node :zeus "Zeus" 200 150)
-         (add-node :hera "Hera" 500 150)
-         (add-node :ares "Ares" 350 250)
-         (add-node :matrimony "♥" 400 170 :shape :circle :style {:fill "salmon"})
-         (add-edge :father1 :athena :zeus)
-         (add-edge :zeus-matrimony :zeus :matrimony)
-         (add-edge :hera-matrimony :hera :matrimony)
-         (add-edge :son-zeus-hera :ares :matrimony)
-         (layout :hierarchical)
-         build view svgdoc->string)}))
-
 (defn svgdispatcher [path svg]
   (defdispatcher path
     (fn [request]
@@ -71,3 +53,27 @@
 (svgdispatcher "/devel/wiki.svg"
                (rope->svg (rope (rope (rope (rope "Hello " "my "))
                                       (rope (rope (rope "na" "me i") (rope "s")) (rope (rope " Simon")))))))
+
+(defn rope-graph [graph root]
+  (loop [graph graph,
+         zipper (rope-zip root), parent nil]
+    (if (zip/end? zipper)
+      graph
+      (let [id (-> zipper zip/node System/identityHashCode str keyword),
+            parent (zip/up zipper), name (if parent (-> zipper zip/node pr-str) "root")]
+        (recur
+         (if parent
+           (let [parent-id (-> parent zip/node System/identityHashCode str keyword),
+                 parent-name (if (zip/up parent) (-> parent zip/node pr-str) "root")]
+             (-> graph
+                 (add-node id name)
+                 (add-edge (str parent-id "->" id) id parent-id)))
+           (-> graph (add-node id name)))
+         (zip/next zipper) zipper)))))
+
+(svgdispatcher "/devel/test.svg"
+               (-> (create-graph)
+                   (add-default-node-attrs :r 45 :shape :circle)
+                   (rope-graph (rope (rope (rope (rope "Hello " "my "))
+                                           (rope (rope (rope "na" "me i") (rope "s")) (rope (rope " Simon"))))))
+                   (layout :hierarchical) build view svgdoc->string))
