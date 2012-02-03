@@ -1,5 +1,5 @@
 (ns engine.devel.rope
-  (:use engine.server.rope
+  (:use engine.data.rope
         lacij.graph.core lacij.graph.svg.graph lacij.layouts.layout
         [engine.core :only [defdispatcher]])
   (:require [clojure.zip :as zip])
@@ -38,7 +38,7 @@
 (defn rope->svg
   ([coll] (rope->svg coll false))
   ([coll rebalance?]
-     (-> (if rebalance? (rope-rebalance coll) coll) rope->graph view svgdoc->string)))
+     (-> (if rebalance? (rebalance coll) coll) rope->graph view svgdoc->string)))
 
 (defn svgdispatcher [path svg]
   (defdispatcher path

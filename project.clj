@@ -1,7 +1,7 @@
 (defproject engine "0.0.0-SNAPSHOT"
   :description "Engine next generation internet Emacs"
   :dependencies [[org.clojure/clojure "1.2.1"]
-                 [aleph "0.2.0-rc2"]
+                 [aleph "0.2.0"]
                  [ring/ring-core "1.0.0-RC1"]
                  [net.cgrand/moustache "1.0.0"]
                  [compojure "0.6.4"]
@@ -11,7 +11,8 @@
                  [org.clojure/tools.logging "0.2.3"]
                  [clj-logging-config "1.9.6"]]
   :dev-dependencies [[ring/ring-devel "1.0.0-RC1"]
-                     [lacij "0.6.0"]]
+                     [lacij "0.6.0"]
+                     [clojurecheck "2.0.2"]]
   :resources-path "resources"
   :repl-init engine.repl-init
   :license {:name "GNU Affero General Public License v3 (or later)"

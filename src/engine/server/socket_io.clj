@@ -1,15 +1,20 @@
 (ns engine.server.socket-io
   (:use [aleph.http :only [request-cookie request-params wrap-aleph-handler]]
         [aleph.formats :only [encode-json->string decode-json]]
-        [lamina.core]
-        [clojure.contrib.datalog.util :only [reverse-map]]
-        [net.cgrand.moustache]
-        [clojure.contrib.pprint :only [cl-format]]
+        lamina.core
+        net.cgrand.moustache
+        [clojure.pprint :only [cl-format]]
         [clojure.tools.logging :as log])
   (:import [java.lang Integer]
            [java.util Timer TimerTask]
            [clojure.lang Keyword PersistentArrayMap]
            [java.util.concurrent TimeoutException]))
+
+; from contrib.datalog
+(defn reverse-map
+  "Reverse the keys/values of a map"
+  [m]
+  (into {} (map (fn [[k v]] [v k]) m)))
 
 (defrecord WebsocketChannel [channel endpoint sequencer])
 
