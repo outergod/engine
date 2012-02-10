@@ -8,6 +8,8 @@ by Boehm, Hans-J; Atkinson, Russ; and Plass, Michael (December 1995), doi:10.100
   (:import [clojure.lang Counted Indexed]
            [java.lang String IndexOutOfBoundsException]))
 
+(doseq [fun ['concat 'subs]] (ns-unmap *ns* fun))
+
 (def *fib-seq* (map first (iterate (fn [[a b]] [b (+ a b)]) [0 1])))
 (def *leaf-cutoff-length* 128) ; TODO make constant in clojure 1.3
 
@@ -130,7 +132,7 @@ In other words: What a new Treeish-2-3 node would weigh with seq as its left chi
               (if (<= weight l-index)
                 (recur (zip/right next) (- l-index weight))
                 (recur next l-index)))
-            :default (throw (IndexOutOfBoundsException. (str "String index out of range: " index)))))))
+            :default (throw (IndexOutOfBoundsException. (str "Rope index out of range: " index)))))))
 
 (defn rope-seq
   "Lazy sequence of all Rope nodes at root, depth-first order"
@@ -141,7 +143,7 @@ In other words: What a new Treeish-2-3 node would weigh with seq as its left chi
 (defn rope->string
   "Flat string from Rope at root"
   [root]
-  (->> (rope-seq root) (filter string?) (reduce str)))
+  (apply str (->> (rope-seq root) (filter string?))))
 
 (defn rebalance
   "Create rebalanced copy of the Rope, using the algorithm described in \"Ropes: an Alternative to Strings\".
@@ -195,7 +197,7 @@ right of the traversal."
          (let [node (zip/node zipper), node-weight (-> node measure measure-key), new-weight (+ node-weight total-weight)]
            (if (string? node)
              (if (pred new-weight node)
-               (throw (IndexOutOfBoundsException. (str "Node index out of range")))
+               (throw (IndexOutOfBoundsException. (str "Node index out of range: " new-weight)))
                [(-> zipper zip/remove zip/root) node (reassemble acc)])
              (let [left (zip/down zipper), right (zip/right left)]
                (cond (nil? right) (recur acc left total-weight)
@@ -240,30 +242,36 @@ Additional xs will be concatenated first."
      (if (= start (count root))
        "" ; For consistency with "normal" subs
        (let [[_ string right-rope position] (rope-split-at root start)]
-         (str (core/subs string position) right-rope))))
+         (conc (core/subs string position) right-rope))))
   ([root start end]
      {:pre [(>= (- end start) 0)]}
-     (if (= start (count root))
-       ""
-       (let [[_ part1 right-rope position1] (rope-split-at root start)
-             length (- end start)
-             rest (- (count part1) position1)]
-         (if (> length rest)
-           (let [[middle-rope part2 _ position2] (rope-split-at right-rope (- length rest))]
-             (str (core/subs part1 position1) middle-rope (core/subs part2 0 position2)))
-           (core/subs part1 position1 (+ position1 length)))))))
+     (let [length (count root)]
+      (cond (= start length) ""
+            (> end length) (throw (IndexOutOfBoundsException. (str "Rope index out of range: " end)))
+            :default
+            (let [[_ part1 right-rope position1] (rope-split-at root start)
+                  length (- end start)
+                  rest (- (count part1) position1)]
+              (cond (= length (+ rest (count right-rope))) (conc (core/subs part1 position1) right-rope)
+                    (> length rest)
+                    (let [[middle-rope part2 _ position2] (rope-split-at right-rope (- length rest))]
+                      (conc (core/subs part1 position1) (conjoin middle-rope (core/subs part2 0 position2))))
+                    :default (core/subs part1 position1 (+ position1 length))))))))
 
 (defn delete
   "Delete the characters at interval [start..end] in the Rope"
   [root start end]
   {:pre [(>= (- end start) 0)]}
-  (if (= end (count root))
-    (let [[left-rope part _ position] (rope-split-at root start)]
-      (conjoin left-rope (core/subs part 0 position)))
-    (let [[left-rope part1 _ position1] (rope-split-at root start)
-          [_ part2 right-rope position2] (rope-split-at root end)]
-      (conc (conjoin left-rope (core/subs part1 0 position1) (core/subs part2 position2))
-            right-rope))))
+  (cond
+   (= start end) root
+   (= end (count root))
+   (let [[left-rope part _ position] (rope-split-at root start)]
+     (conjoin left-rope (core/subs part 0 position)))
+   :default
+   (let [[left-rope part1 _ position1] (rope-split-at root start)
+         [_ part2 right-rope position2] (rope-split-at root end)]
+     (conc (conjoin left-rope (core/subs part1 0 position1) (core/subs part2 position2))
+           right-rope))))
 
 (deftype Rope [#^CharSequence left #^CharSequence right #^CharSequenceMeasurement weight #^int level]
   Measurable
