@@ -12,7 +12,8 @@
                  [clj-logging-config "1.9.6"]]
   :dev-dependencies [[ring/ring-devel "1.0.0-RC1"]
                      [lacij "0.6.0"]
-                     [clojurecheck "2.0.2"]]
+                     [clojurecheck "2.0.2"]
+                     [incanter "1.2.4"]]
   :resources-path "resources"
   :repl-init engine.repl-init
   :license {:name "GNU Affero General Public License v3 (or later)"
