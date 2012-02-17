@@ -103,7 +103,8 @@ Default implementations for nil and String exist."
   (instance? Rope x))
 
 (defn weigh
-  "The accumulated measurement of all children to the right, provided that Treeish-2-3 is implemented for seq.
+  "The accumulated measurement of all children to the right
+Provided that Treeish-2-3 is implemented for seq.
 In other words: What a new Treeish-2-3 node would weigh with seq as its left child."
   [seq]
   {:pre [(measurable? seq)]}
@@ -304,6 +305,7 @@ then the same for everything right of the line."
        (report root (translate root start-line start-column) (translate root end-line end-column)))))
 
 (defn translate
+  "Translate between Rope measurements"
   ([root row column]
      {:pre [(>= row 0) (>= column 0)]}
      (if (> row (-> root measure :lines))
@@ -319,7 +321,7 @@ then the same for everything right of the line."
   ([root index]
      {:pre [(>= index 0)]}
      (let [[left-rope leaf _ rest] (rope-split-at root index),
-           lines (->> (subs leaf 0 rest) split-lines),
+           lines (split-lines (subs leaf 0 rest)),
            rope-weight (-> left-rope measure :lines),
            weight (dec (count lines))]
        (if (zero? weight)
