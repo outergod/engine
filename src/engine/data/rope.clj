@@ -10,7 +10,8 @@ by Boehm, Hans-J; Atkinson, Russ; and Plass, Michael (December 1995), doi:10.100
 (def *leaf-cutoff-length* 64) ; This value has been determined optimal for split operations through benchmarking. TODO make constant in clojure 1.3
 
 (defprotocol Measurable
-  "Trivial protocol for things measurable.
+  "Trivial protocol for things measurable
+
 Default implementations are provided for nil and String; nil measures as 0
 characters, 0 lines. Strings get analyzed accordingly."
   (measure [object] "Measure object"))
@@ -31,7 +32,9 @@ characters, 0 lines. Strings get analyzed accordingly."
   (print-simple (format "#<CharSequenceMeasurement %d/%d>" (:length weight) (:lines weight)) writer))
 
 (defn measurement
-  "CharSequenceMeasurement from length and lines; (measurement) is 0/0"
+  "CharSequenceMeasurement from length and lines
+
+(measurement) is 0/0"
   ([] (CharSequenceMeasurement. 0 0))
   ([length lines] (CharSequenceMeasurement. length lines)))
 
@@ -55,7 +58,8 @@ characters, 0 lines. Strings get analyzed accordingly."
 
 
 (defprotocol Treeish-2-3
-  "Protocol describing 2-3-Trees, such as Ropes.
+  "Protocol describing 2-3-Trees, such as Ropes
+
 Default implementations for nil and String exist."
   (split [tree pred] "Split tree by pred")
   (conc [tree1 tree2] "Concatenate tree1 and tree2")
@@ -104,6 +108,7 @@ Default implementations for nil and String exist."
 
 (defn weigh
   "The accumulated measurement of all children to the right
+
 Provided that Treeish-2-3 is implemented for seq.
 In other words: What a new Treeish-2-3 node would weigh with seq as its left child."
   [seq]
@@ -151,7 +156,9 @@ In other words: What a new Treeish-2-3 node would weigh with seq as its left chi
   (apply str (->> (rope-seq root) (filter string?))))
 
 (defn rebalance
-  "Create rebalanced copy of the Rope, using the algorithm described in \"Ropes: an Alternative to Strings\".
+  "Rebalanced copy of the Rope provided
+
+Using the algorithm described in \"Ropes: an Alternative to Strings\".
 The implementation does not resemble the one from the paper, but is instead
 idiomatic Clojure and optimized for functional languages in general."  [root]
   (let [fold (fn [coll] (reduce rope (reverse coll)))
@@ -173,7 +180,8 @@ idiomatic Clojure and optimized for functional languages in general."  [root]
       (rebalance new-rope))))
 
 (defn string->rope [string]
-  "Create a fresh Rope from flat string.
+  "Fresh Rope from flat string
+
 The resulting leafes will carry at most *leaf-cutoff-length* characters of the
 input string."
   (letfn [(build [acc]
