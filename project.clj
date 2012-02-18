@@ -1,11 +1,11 @@
 (defproject engine "0.0.0-SNAPSHOT"
   :description "Engine next generation internet Emacs"
-  :dependencies [[org.clojure/clojure "1.2.1"]
-                 [aleph "0.2.0"]
+  :dependencies [[org.clojure/clojure "1.3.0"]
+                 [aleph "0.2.1-alpha2-SNAPSHOT"]
                  [ring/ring-core "1.0.0-RC1"]
                  [net.cgrand/moustache "1.0.0"]
                  [compojure "0.6.4"]
-                 [org.clojars.kriyative/clojurejs "1.2.10"]
+                 #_[org.clojars.kriyative/clojurejs "1.2.18"]
                  [hiccup "0.3.7"]
                  [cssgen "0.2.5"]
                  [org.clojure/tools.logging "0.2.3"]

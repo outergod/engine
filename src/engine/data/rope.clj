@@ -3,11 +3,12 @@
 by Boehm, Hans-J; Atkinson, Russ; and Plass, Michael (December 1995), doi:10.1002/spe.4380251203."
   (:use [clojure.string :only [join]])
   (:require [clojure.zip :as zip])
-  (:import [clojure.lang Counted Indexed]
-           [java.lang String IndexOutOfBoundsException]))
+  (:import [clojure.lang Counted Indexed Delay IDeref]
+           [java.lang String IndexOutOfBoundsException]
+           [java.io File RandomAccessFile]))
 
-(def *fib-seq* (map first (iterate (fn [[a b]] [b (+ a b)]) [0 1])))
-(def *leaf-cutoff-length* 64) ; This value has been determined optimal for split operations through benchmarking. TODO make constant in clojure 1.3
+(def fib-seq (map first (iterate (fn [[a b]] [b (+ a b)]) [0 1])))
+(def ^:dynamic *leaf-cutoff-length* 64) ; This value has been determined optimal for split operations through benchmarking
 
 (defprotocol Measurable
   "Trivial protocol for things measurable
@@ -21,11 +22,6 @@ characters, 0 lines. Strings get analyzed accordingly."
   [x]
   (satisfies? Measurable x))
 
-(defn measure+
-  "Add up weights of measurements"
-  [& xs]
-  (->> xs (map vals) (reduce #(map + %1 %2)) (apply measurement)))
-
 (defrecord CharSequenceMeasurement [#^int length #^int lines])
 
 (defmethod print-method CharSequenceMeasurement [weight writer]
@@ -37,6 +33,11 @@ characters, 0 lines. Strings get analyzed accordingly."
 (measurement) is 0/0"
   ([] (CharSequenceMeasurement. 0 0))
   ([length lines] (CharSequenceMeasurement. length lines)))
+
+(defn measure+
+  "Add up weights of measurements"
+  [& xs]
+  (->> xs (map vals) (reduce #(map + %1 %2)) (apply measurement)))
 
 (defn count-matches
   "Number of character matches in string"
@@ -65,7 +66,8 @@ Default implementations for nil and String exist."
   (conc [tree1 tree2] "Concatenate tree1 and tree2")
   (left [tree] "Left child of tree")
   (right [tree] "Right child of tree")
-  (depth [tree] "Depth of tree"))
+  (depth [tree] "Depth of tree")
+  (leaf? [tree] "Is tree a leaf?"))
 
 (defn treeish-2-3?
   "Does x satisfy Treeish-2-3?"
@@ -83,7 +85,8 @@ Default implementations for nil and String exist."
   (conc [_ _] nil)
   (left [_] nil)
   (right [_] nil)
-  (depth [_] 0))
+  (depth [_] 0)
+  (leaf? [_] true))
 
 (extend-type String
   Treeish-2-3
@@ -91,7 +94,8 @@ Default implementations for nil and String exist."
   (conc [this coll] (cat this coll))
   (left [_] nil)
   (right [_] nil)
-  (depth [_] 0))
+  (depth [_] 0)
+  (leaf? [_] true))
 
 (defprotocol Ropey
   "Rope-specific protocol for things that don't fit into general 2-3-Trees."
@@ -153,7 +157,7 @@ In other words: What a new Treeish-2-3 node would weigh with seq as its left chi
 (defn rope->string
   "Flat string from Rope at root"
   [root]
-  (apply str (->> (rope-seq root) (filter string?))))
+  (apply str (->> (rope-seq root) (filter leaf?))))
 
 (defn rebalance
   "Rebalanced copy of the Rope provided
@@ -162,7 +166,7 @@ Using the algorithm described in \"Ropes: an Alternative to Strings\".
 The implementation does not resemble the one from the paper, but is instead
 idiomatic Clojure and optimized for functional languages in general."  [root]
   (let [fold (fn [coll] (reduce rope (reverse coll)))
-        fib-border (fn [limit] (->> *fib-seq* (take-while #(>= limit %)) last))]
+        fib-border (fn [limit] (->> fib-seq (take-while #(>= limit %)) last))]
     (loop [acc (), coll (->> (rope-seq root) (filter string?)), max-length nil]
       (let [current (first coll), length (count current)]
         (if current
@@ -249,7 +253,7 @@ The additional remaining string index will be the fourth vector element"
   [root index]
   (if (= (count root) index)
     [root "" (rope) 0]
-    (let [[left-rope string right-rope _] (rope-split root (fn [weight _] (>= index (:length weight))))
+    (let [[left-rope string right-rope _] (.split root (fn [weight _] (>= index (:length weight))))
           position (- index (count left-rope))]
       [left-rope string right-rope position])))
 
@@ -263,7 +267,7 @@ The additional remaining string index will be the fourth vector element"
 The resulting vector consists of the left rope, lines left of the target line,
 then the same for everything right of the line."
   [root index]
-  (let [[left-rope string right-rope _] (rope-split root (fn [weight _] (> index (:lines weight)))),
+  (let [[left-rope string right-rope _] (.split root (fn [weight _] (> index (:lines weight)))),
         position (- index (:lines (measure left-rope))),
         [left-lines [line & right-lines]] (split-at position (split-lines string))]
     [left-rope left-lines line right-lines right-rope]))
@@ -283,6 +287,31 @@ then the same for everything right of the line."
                       "\n" (subs line 0 column) string (subs line column)
                       (apply str (interpose \n right-lines)))
              right-rope))))
+
+(defn translate
+  "Translate between Rope measurements"
+  ([root row column]
+     {:pre [(>= row 0) (>= column 0)]}
+     (if (> row (-> root measure :lines))
+       (throw (IndexOutOfBoundsException. (str "Line index out of range: " row)))
+       (let [[left-rope left-lines line right-lines right-rope] (rope-split-at-line root row),
+             offset (+ (count left-rope) (count (apply concat left-lines)) (count left-lines) column),
+             delta (- column (count line))]
+         (if (and (pos? delta) (empty? right-lines)
+                  (not (and (>= (count right-rope) delta)
+                            (zero? (first (translate right-rope delta))))))
+           (throw (IndexOutOfBoundsException. (str "String index out of range: " column)))
+           offset))))
+  ([root index]
+     {:pre [(>= index 0)]}
+     (let [[left-rope leaf _ rest] (rope-split-at root index),
+           lines (split-lines (subs leaf 0 rest)),
+           rope-weight (-> left-rope measure :lines),
+           weight (dec (count lines))]
+       (if (zero? weight)
+         (let [[_ _ line _ right-rope] (rope-split-at-line left-rope rope-weight)]
+           [rope-weight, (+ (count line) (count right-rope) (-> lines first count))])
+         [(+ rope-weight weight), (-> lines last count)]))))
 
 (defn report
   "Report in O(log n) time for Ropes, the equivalent of string subs"
@@ -311,31 +340,6 @@ then the same for everything right of the line."
               (= start-column end-column))
        ""
        (report root (translate root start-line start-column) (translate root end-line end-column)))))
-
-(defn translate
-  "Translate between Rope measurements"
-  ([root row column]
-     {:pre [(>= row 0) (>= column 0)]}
-     (if (> row (-> root measure :lines))
-       (throw (IndexOutOfBoundsException. (str "Line index out of range: " row)))
-       (let [[left-rope left-lines line right-lines right-rope] (rope-split-at-line root row),
-             offset (+ (count left-rope) (count (apply concat left-lines)) (count left-lines) column),
-             delta (- column (count line))]
-         (if (and (pos? delta) (empty? right-lines)
-                  (not (and (>= (count right-rope) delta)
-                            (zero? (first (translate right-rope delta))))))
-           (throw (IndexOutOfBoundsException. (str "String index out of range: " column)))
-           offset))))
-  ([root index]
-     {:pre [(>= index 0)]}
-     (let [[left-rope leaf _ rest] (rope-split-at root index),
-           lines (split-lines (subs leaf 0 rest)),
-           rope-weight (-> left-rope measure :lines),
-           weight (dec (count lines))]
-       (if (zero? weight)
-         (let [[_ _ line _ right-rope] (rope-split-at-line left-rope rope-weight)]
-           [rope-weight, (+ (count line) (count right-rope) (-> lines first count))])
-         [(+ rope-weight weight), (-> lines last count)]))))
 
 (defn delete
   "Delete the characters at interval [start..end] in the Rope"
@@ -373,9 +377,10 @@ then the same for everything right of the line."
   (left [_] left)
   (right [_] right)
   (depth [_] level)
+  (leaf? [_] false)
 
   Ropey
-  (balanced? [this] (>= (count this) (nth *fib-seq* (+ level 2))))
+  (balanced? [this] (>= (count this) (nth fib-seq (+ level 2))))
 
   Counted
   (count [this] (:length (weigh this)))
@@ -387,7 +392,7 @@ then the same for everything right of the line."
   (charAt [this index] (nth this index))
   (length [this] (count this))
   (subSequence [this start end] (report this start end))
-  (toString [this] (rope->string this)))  
+  (toString [this] (rope->string this)))
 
 (defmethod print-method Rope [rope writer]
   (print-simple (format "#<Rope %s>" (->> (measure rope) vals (join "/"))) writer))
@@ -399,3 +404,63 @@ then the same for everything right of the line."
              (<= (+ (count right-child) (count string)) *leaf-cutoff-length*))
       (rope (left coll) (str right-child string))
       (cat coll (rope string)))))
+
+(deftype Bud [#^Delay seed #^CharSequenceMeasurement weight]
+  Measurable
+  (measure [_] (if (realized? seed)
+                 (measure @seed)
+                 weight))
+
+  IDeref
+  (deref [_] (force seed))
+
+  Treeish-2-3
+  (split [_ _] nil)
+  (conc [this coll] (cat this coll))
+  (left [_] nil)
+  (right [_] nil)
+  (depth [_] 0)
+  (leaf? [_] true)
+
+  Counted
+  (count [this] (:length (weigh this)))
+
+  Indexed
+  (nth [this index] (nth @seed index))
+
+  CharSequence
+  (charAt [this index] (nth @seed index))
+  (length [this] (count this))
+  (subSequence [this start end] (subs @seed start end))
+  (toString [this] @seed))
+
+(defmethod print-method Bud [bud writer]
+  (print-simple (format "#<Bud %s>" (->> (measure bud) vals (join "/"))) writer))
+
+(defn file-chunk [file pos len]
+  (let [readfn (fn []
+                 (with-open [file (RandomAccessFile. file "r")]
+                   (let [data (byte-array len)]
+                     (doto file (.seek pos) (.read data 0 len))
+                     (String. data))))]
+   (Bud. (delay (readfn))
+         (measure (readfn)))))
+
+(defn- span [start end step]
+  (let [coll (->> (iterate (fn [[a b]] [(inc b) (+ (inc b) (- b a))]) [start (dec (+ start step))])
+                  (take-while #(< (second %) end)))]
+    (concat (butlast coll) [[(-> coll last first) (dec end)]])))
+
+(defn file->rope [path]
+  "Fresh Rope from file"
+  (let [file (File. path), size (.length file),
+        step (-> size (/ (.. Runtime getRuntime availableProcessors)) Math/ceil int)]
+    (letfn [(build [acc]
+              (if (> (count acc) 1)
+                (recur (->> (partition-all 2 acc) (map #(apply rope %))))
+                (first acc)))]
+      (->> (span 0 size step)
+           (pmap (bound-fn [[pos limit]]
+                   (->> (span pos (inc limit) *leaf-cutoff-length*)
+                        (map (fn [[start end]] (file-chunk file start (inc (- end start))))) build)))
+           build rope))))

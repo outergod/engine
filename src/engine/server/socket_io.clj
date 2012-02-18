@@ -5,7 +5,7 @@
         net.cgrand.moustache
         [clojure.pprint :only [cl-format]]
         [clojure.tools.logging :as log])
-  (:import [java.lang Integer]
+  (:import [java.lang Long]
            [java.util Timer TimerTask]
            [clojure.lang Keyword PersistentArrayMap]
            [java.util.concurrent TimeoutException]))
@@ -63,7 +63,7 @@
         (log/error (format "Received malformed message %s" message))))))
 
 (defmulti websocket-message (fn [type & rest] (class type)))
-(defmethod websocket-message Integer
+(defmethod websocket-message Long
   [type & {:keys [id endpoint data] :or {id "" endpoint ""}}]
   (format "%d:%s:%s%s" type id
           (if (#{:message :json-message :event :error}
