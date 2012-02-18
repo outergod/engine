@@ -437,7 +437,9 @@ then the same for everything right of the line."
 (defmethod print-method Bud [bud writer]
   (print-simple (format "#<Bud %s>" (->> (measure bud) vals (join "/"))) writer))
 
-(defn file-chunk [file pos len]
+(defn file-chunk
+  "Fresh Bud that reads from file"
+  [file pos len]
   (let [readfn (fn []
                  (with-open [file (RandomAccessFile. file "r")]
                    (let [data (byte-array len)]
@@ -451,8 +453,9 @@ then the same for everything right of the line."
                   (take-while #(< (second %) end)))]
     (concat (butlast coll) [[(-> coll last first) (dec end)]])))
 
-(defn file->rope [path]
+(defn file->rope
   "Fresh Rope from file"
+  [path]
   (let [file (File. path), size (.length file),
         step (-> size (/ (.. Runtime getRuntime availableProcessors)) Math/ceil int)]
     (letfn [(build [acc]
