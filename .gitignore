@@ -8,3 +8,4 @@ pom.xml
 /.clojurescript-output
 /.lein-plugins
 /out
+*.log
