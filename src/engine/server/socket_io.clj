@@ -4,7 +4,9 @@
         lamina.core
         net.cgrand.moustache
         [clojure.pprint :only [cl-format]]
-        [clojure.tools.logging :as log])
+        clj-logging-config.log4j)
+  (:require [clojure.tools.logging :as log]
+            [clojure.java.io :as io])
   (:import [java.lang Long]
            [java.util Timer TimerTask]
            [clojure.lang Keyword PersistentArrayMap]
@@ -18,8 +20,9 @@
 
 (defrecord WebsocketChannel [channel endpoint sequencer])
 
-(def *close-timeout* 25)
-(def *heartbeat-interval* 20)
+(def close-timeout 25)
+(def heartbeat-interval 20)
+(def socket-out (io/file "socket.log"))
 
 (def reserved-event-types #{"connect" "disconnect" "message" "ack"})
 
@@ -131,27 +134,27 @@
   (websocket-send socket :noop))
 
 
-(def *heartbeat-channel* (permanent-channel))
-(receive-all *heartbeat-channel* (fn [_])) ; all heartbeat messages are volatile
+(def heartbeat-channel (permanent-channel))
+(receive-all heartbeat-channel (fn [_])) ; all heartbeat messages are volatile
 
 (defn heartbeat []
   (log/debug "Bubump")
-  (enqueue *heartbeat-channel* (websocket-message :heartbeat)))
+  (enqueue heartbeat-channel (websocket-message :heartbeat)))
 
-(when (and (.hasRoot (def *heartbeat*))
-           (= Timer (class *heartbeat*)))
-  (.cancel *heartbeat*)) ; sometimes, defonce just doesn't work as-is..
-(def *heartbeat* (new Timer "Engine heartbeat" true))
+(when (and (.hasRoot (def heartbeat))
+           (= Timer (class heartbeat)))
+  (.cancel heartbeat)) ; sometimes, defonce just doesn't work as-is..
+(def heartbeat (new Timer "Engine heartbeat" true))
 
 (let [timer-task (proxy [TimerTask] [] ; in such moments, I love clojure for making java bearable
                    (run [] (heartbeat)))]
-  (doto *heartbeat* (.scheduleAtFixedRate timer-task (long 0) (long (* 1000 20)))))
+  (doto heartbeat (.scheduleAtFixedRate timer-task (long 0) (long (* 1000 20)))))
 
 (defn handshake [request]
   (if-let [sid (and (:session request)
                     (-> request :cookies (get "engine") :value))]
     {:status 200 :content-type "text/plain"
-     :body (cl-format nil "~a:~d:~d:~{~a~^,~}" sid *heartbeat-interval* *close-timeout* ["websocket"])}
+     :body (cl-format nil "~a:~d:~d:~{~a~^,~}" sid heartbeat-interval close-timeout ["websocket"])}
     {:status 401}))
 
 (defn deathwatch [channel timeout] 
@@ -170,38 +173,42 @@
 
 (defn message-handler [socket dispatcher]
   (fn [message]
-    (when-let [[type id data-ack endpoint data] (translate-message message)]
-      (case type
-        :disconnect (close (:channel socket))
-        :connect (send-error socket "Additional endpoints not supported" "Just don't try again, bitch!")
-        :heartbeat (log/debug "Client sent heartbeat")
-        :message (do
-                   (log/debug (str "Client sent message " data))
-                   (handle-ack socket id (dispatcher "message" data) data-ack))
-        :json-message (do
-                        (log/debug (str "Client sent JSON message " data))
-                        (handle-ack socket id (apply dispatcher "message" (decode-json data)) data-ack))
-        :event (do
-                 (log/debug (str "Client sent event message " data))
-                 (let [{:keys [name args]} (decode-json data)]
-                   (if (reserved-event-types name)
-                     (send-error socket (format "Event name %s is reserved" name))
-                     (handle-ack socket id (apply dispatcher name args) data-ack))))
-        :ack  (let [[id data] (translate-ack data)]
-                (log/debug (format "Client acknowledged %d\nData: %s" id data))
-                (apply dispatcher "ack" id (decode-json data)))
-        :error (let [[reason advice] (translate-error data)]
-                 (log/error (format "Client signalled an error %s\nAdvice: %s" reason advice)))
-        :noop (log/debug "Client sent noop (whatever)")
-        (log/error (format "Ignoring unknown type %s for message %s" type message))))))
+    (with-logging-config [:root {:level :debug :out socket-out}]
+      (try
+        (when-let [[type id data-ack endpoint data] (translate-message message)]
+          (case type
+            :disconnect (close (:channel socket))
+            :connect (send-error socket "Additional endpoints not supported" "Just don't try again, bitch!")
+            :heartbeat (log/debug "Client sent heartbeat")
+            :message (do
+                       (log/debug (str "Client sent message " data))
+                       (handle-ack socket id (dispatcher "message" data) data-ack))
+            :json-message (do
+                            (log/debug (str "Client sent JSON message " data))
+                            (handle-ack socket id (apply dispatcher "message" (decode-json data)) data-ack))
+            :event (do
+                     (log/debug (str "Client sent event message " data))
+                     (let [{:keys [name args]} (decode-json data)]
+                       (if (reserved-event-types name)
+                         (send-error socket (format "Event name %s is reserved" name))
+                         (handle-ack socket id (apply dispatcher name args) data-ack))))
+            :ack  (let [[id data] (translate-ack data)]
+                    (log/debug (format "Client acknowledged %d\nData: %s" id data))
+                    (apply dispatcher "ack" id (decode-json data)))
+            :error (let [[reason advice] (translate-error data)]
+                     (log/error (format "Client signalled an error %s\nAdvice: %s" reason advice)))
+            :noop (log/debug "Client sent noop (whatever)")
+            (log/error (format "Ignoring unknown type %s for message %s" type message))))
+        (catch Exception e
+          (log/error "Fatal error handling socket.io request:" e))))))
 
 (defn socket [dispatcher]
   (fn [channel request]
     (let [socket (WebsocketChannel. channel "" (websocket-sequencer))
           handler (partial dispatcher socket)]
       (send-connect socket) ; this is obligatory!
-      (siphon *heartbeat-channel* channel)
-      (deathwatch channel *close-timeout*)
+      (siphon heartbeat-channel channel)
+      (deathwatch channel close-timeout)
       (receive-all (fork channel) (message-handler socket handler))
       (on-closed channel #(handler "disconnect"))
       (handler "connect"))))
