@@ -5,7 +5,6 @@
                  [ring/ring-core "1.0.0-RC1"]
                  [net.cgrand/moustache "1.0.0"]
                  [compojure "0.6.4"]
-                 #_[org.clojars.kriyative/clojurejs "1.2.18"]
                  [hiccup "0.3.7"]
                  [cssgen "0.2.5"]
                  [org.clojure/tools.logging "0.2.3"]
@@ -13,7 +12,7 @@
   :dev-dependencies [[ring/ring-devel "1.0.0-RC1"]
                      [lacij "0.6.0"]
                      [clojurecheck "2.0.2"]
-                     [incanter "1.2.4"]]
+                     [incanter "1.3.0"]]
   :resources-path "resources"
   :repl-init engine.repl-init
   :license {:name "GNU Affero General Public License v3 (or later)"
