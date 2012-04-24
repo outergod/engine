@@ -1,7 +1,7 @@
 (ns engine.client
   (:use [engine.core :only (defdispatcher)]
-        [clojurejs.js :as js]
         [clojure.string :only (split join)])
+  (:require [clojure.java.io :as io])
   (:import (java.util Date Locale TimeZone)
            java.text.SimpleDateFormat))
 
@@ -22,39 +22,3 @@
          :content-type "text/javascript"
          :headers {:last-modified (.. (rfc-1123-format) (format date))}
          :body body}))))
-
-(defmacro defjshandler [name js]
-  (let [uri (str "/client/engine/"
-                 (join "/" (conj (vec (rest (rest (split (str *ns*) #"\."))))
-                                 (str name ".js"))))]
-    `(defdispatcher ~uri (unchanged-handler (js/js ~js)))))
-
-(defdispatcher "/client/main.js" ; special case in terms of URI, required to have require.js set its base URL
-  (unchanged-handler
-   (js/js
-    (require ["ace/ace-uncompressed" "socket.io/socket.io"]
-             (fn []
-               (require ["engine/keyboard" "ace/ace" "ace/edit_session" "ace/lib/event" "engine/commands/default-commands" "ace/theme-twilight"]
-                        (fn [keyboard ace edit event]
-                          (let [editor (.edit ace "editor")
-                                session (get edit "EditSession")]
-                            (set! editor.io (.connect io)
-                                  editor.bufferName "foo")
-                            (.setTheme editor "ace/theme/twilight")
-                            (.setKeyboardHandler editor (keyboard editor))
-                            (.setShowGutter editor.renderer false)
-                            (.setShowPrintMargin editor.renderer false)
-                            (.emit editor.io "load-buffer" "foo"
-                                   (fn [contents position]
-                                     (.setSession editor (new session contents))
-                                     (.moveCursorTo editor (get position "row") (get position "column"))))))))))))
-
-(defjshandler keyboard
-  (define []
-    (fn []
-      (fn [editor]
-        {handleKeyboard (fn [data hash-id text-or-key key-code]
-                          (.emit editor.io "keyboard" hash-id text-or-key key-code (get editor "bufferName")
-                                 (fn [response]
-                                   (.exec editor.commands (get response "command") {editor editor} (get response "args"))))
-                          {command "noop"})}))))
