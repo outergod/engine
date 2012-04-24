@@ -2,8 +2,6 @@
   (:use clojure.tools.logging
         clj-logging-config.log4j))
 
-(reset-logging!)
-(set-loggers! :root
-              {:pattern "%d %-5p [%t]: %m%n" :level :debug :out *out*})
+(set-logger! :pattern "%d %-5p [%t]: %m%n" :level :debug :out *out*)
 
-(require 'engine.core #_engine.client #_engine.client.commands 'engine.data.rope 'engine.devel.rope 'engine.devel.benchmark)
+(require 'engine.core 'engine.client 'engine.data.rope 'engine.devel.rope 'engine.devel.benchmark)
