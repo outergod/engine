@@ -42,7 +42,7 @@
          (cursor root (count @root))
          (let [row+1-pos (rope/translate @root (+ row 1) 0),
                row+2-pos (if (= (inc row) last-row)
-                           (count @root)
+                           (inc (count @root))
                            (rope/translate @root (+ row 2) 0))]
            (cursor root (rope/translate @root (inc row) (min column (dec (- row+2-pos row+1-pos))))))))))
   (previous-line [_]

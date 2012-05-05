@@ -4,4 +4,4 @@
 
 (set-logger! :pattern "%d %-5p [%t]: %m%n" :level :debug :out *out*)
 
-(require 'engine.core 'engine.client 'engine.data.rope 'engine.devel.rope 'engine.devel.benchmark)
+(require 'engine.core 'engine.client #_engine.devel.rope #_engine.devel.benchmark)

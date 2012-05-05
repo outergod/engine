@@ -243,11 +243,12 @@ idiomatic Clojure and optimized for functional languages in general."
       new-rope
       (rebalance new-rope))))
 
-(defn string->rope [string]
+(defn string->rope
   "Fresh Rope from flat string
 
 The resulting leafes will carry at most *leaf-cutoff-length* characters of the
 input string."
+  [string]
   (letfn [(build [acc]
             (if (> (count acc) 1)
               (recur (->> (partition-all 2 acc) (map #(apply rope %))))
@@ -305,7 +306,10 @@ Additional xs will be concatenated first."
                (and left-child (rope? (zip/node left-child))) (recur left-child)
                :default (-> zipper (zip/edit #(merge %1 %2) x) zip/root)))))
   ([root x & xs]
-     (conjoin root (reduce merge x xs))))
+     (clojure.tools.logging/debug (clojure.pprint/cl-format nil "going to merge [~a] [~a] ~{~^-> [~a]~}" root x xs))
+     (let [result (conjoin root (reduce merge x xs))]
+       (clojure.tools.logging/debug (format "result [%s]" result))
+       result)))
 
 (defn rope-split-at
   "Split Rope at index
@@ -336,11 +340,12 @@ then the same for everything right of the line."
 (defn insert
   "Insert string in Rope at index or line/column"
   ([root index string]
-     (if (= index (count root))
-       (conc root string)
-       (let [[left-rope target right-rope position] (rope-split-at root index)]
-         (rooted (merge (conjoin left-rope (subs target 0 position) string (subs target position))
-                        right-rope)))))
+     (rooted
+      (if (= index (count root))
+        (conc root string)
+        (let [[left-rope target right-rope position] (rope-split-at root index)]
+          (merge (conjoin left-rope (subs target 0 position) string (subs target position))
+                 right-rope)))))
   ([root line column string]
      (let [[left-rope left-lines line right-lines right-rope] (rope-split-at-line root line)]
        (rooted (merge (conjoin left-rope
@@ -415,13 +420,11 @@ then the same for everything right of the line."
         (rope)
         (let [[left-rope part _ position] (rope-split-at root start),
               snippet (subs part 0 position)]
-          (clojure.tools.logging/debug "end = count" (count left-rope) (count snippet))
           (rooted (merge left-rope snippet))))
       :default
       (let [[left-rope part1 _ position1] (rope-split-at root start)
             [_ part2 right-rope position2] (rope-split-at root end),
             new-left (conjoin left-rope (subs part1 0 position1) (subs part2 position2))]
-        (clojure.tools.logging/debug "normal" left-rope (count (subs part1 0 position1)) (count (subs part2 position2)) right-rope)
         (rooted (merge new-left right-rope)))))
   ([root start-line start-column end-line end-column]
      {:pre [(>= (- end-line start-line) 0)]}

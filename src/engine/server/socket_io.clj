@@ -18,7 +18,7 @@
   [m]
   (into {} (map (fn [[k v]] [v k]) m)))
 
-(defrecord WebsocketChannel [channel endpoint sequencer])
+(defrecord WebsocketChannel [channel endpoint sequencer session])
 
 (def close-timeout 25)
 (def heartbeat-interval 20)
@@ -137,9 +137,10 @@
 (def heartbeat-channel (permanent-channel))
 (receive-all heartbeat-channel (fn [_])) ; all heartbeat messages are volatile
 
-(defn heartbeat []
-  (log/debug "Bubump")
-  (enqueue heartbeat-channel (websocket-message :heartbeat)))
+(defn heartbeatfn []
+  (with-logging-config [:root {:level :debug :out socket-out}]
+    (log/debug "Bubump")
+    (enqueue heartbeat-channel (websocket-message :heartbeat))))
 
 (when (and (.hasRoot (def heartbeat))
            (= Timer (class heartbeat)))
@@ -147,7 +148,7 @@
 (def heartbeat (new Timer "Engine heartbeat" true))
 
 (let [timer-task (proxy [TimerTask] [] ; in such moments, I love clojure for making java bearable
-                   (run [] (heartbeat)))]
+                   (run [] (heartbeatfn)))]
   (doto heartbeat (.scheduleAtFixedRate timer-task (long 0) (long (* 1000 20)))))
 
 (defn handshake [request]
@@ -204,7 +205,7 @@
 
 (defn socket [dispatcher]
   (fn [channel request]
-    (let [socket (WebsocketChannel. channel "" (websocket-sequencer))
+    (let [socket (WebsocketChannel. channel "" (websocket-sequencer) (agent {}))
           handler (partial dispatcher socket)]
       (send-connect socket) ; this is obligatory!
       (siphon heartbeat-channel channel)

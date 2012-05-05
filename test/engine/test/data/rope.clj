@@ -25,7 +25,7 @@
        ~@body)))
 
 (deftest fib-seq-test
-  (is (= [0 1 1 2 3 5 8 13] (take 8 rope/*fib-seq*))))
+  (is (= [0 1 1 2 3 5 8 13] (take 8 rope/fib-seq))))
 
 (deftest count-matches-test
   (cc/property "count matches evaluates to the number of characters in a string"

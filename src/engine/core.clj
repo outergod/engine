@@ -4,9 +4,7 @@
         [ring.middleware.stacktrace :only (wrap-stacktrace)]
         [ring.middleware.session :only (wrap-session)]
         [net.cgrand.moustache :only (app)]
-        [compojure.core :only (routes)]
-        [hiccup.page-helpers :only (html5)]
-        [cssgen :only (css rule)])
+        [compojure.core :only (routes)])
   (:require [engine server]
             [engine.data.buffer :as buffer]
             [compojure.route :as route]
@@ -27,41 +25,29 @@
 (defn defdispatcher [uri handler]
   (send dispatch-table #(assoc %1 uri handler)))
 
-(defn index [request]
-  {:status 200
-   :headers {"content-type" "text/html; charset=utf-8"}
-   :body (html5 {:lang "en"}
-                [:head
-                 [:title "Engine"]
-                 [:meta {:charset "utf-8"}]
-                 [:meta {:http-equiv "X-UA-Compatible" :content "chrome=1"}]
-                 [:link {:rel "shortcut icon" :href "client/gears.png"}]
-                 [:style {:type "text/css" :media "screen"}
-                  (css (rule "body" :overflow "none")
-                       (rule "#editor" :margin 0 :position "absolute" :top 0 :bottom 0 :left 0 :right 0))]
-                 #_[:script {:src "/client/goog/base.js"}]
-                 [:script {:data-main "client/main" :src "client/require.js"}]
-                 #_[:script {:data-main "client/client" :src "client/require.js"}]
-                 #_[:script {:src "client/client.js"}]]
-                [:body [:pre {:id "editor"}]])
-   :session (:session request)})
-
 (def dispatcher
   (app
-   (log-request/log)
    (wrap-stacktrace)
    (wrap-session {:cookie-name "engine"})
+   (log-request/log)
    (socket-io/socket.io-handler engine.server/server)
    ["client" "ace" &] (app
                        ["theme" &] (route/resources "/" {:root "support/ace/build/src"})
                        [&] (route/resources "/" {:root "support/ace/lib/ace"}))
    ["client" "pilot" &] (route/resources "/" {:root "support/ace/lib/pilot"})
    ["client" "socket.io" &] (route/resources "/" {:root "support/socket.io-client/dist"})
+   ["client" "gcli" &] (route/resources "/" {:root "support/gcli/lib/gcli"})
    ["client" &] (route/resources "/" {:root "client"})
-   [""] index
    [&] (routes server-dispatch (route/not-found "Not found"))))
 
-(defonce server
+
+(defn start-server []
   (start-http-server (wrap-ring-handler (fn [& args]
                                           (apply dispatcher args)))
                      {:port 8080 :join? false :websocket true}))
+
+(defonce server (start-server))
+
+(defn restart-server []
+  (when server (server))
+  (def server (start-server)))
