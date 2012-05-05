@@ -1,5 +1,5 @@
 require(['ace/ace'], function (ace) {
-  return require(['ace/edit_session', 'ace/commands/command_manager', 'theme/engine', 'socket.io/socket.io'], function (edit, command) {
+  return require(['jquery', 'ace/edit_session', 'ace/commands/command_manager', 'gcli/index', 'theme/engine', 'socket.io/socket.io'], function ($, edit, command, gcli) {
     var editor = ace.edit('editor'),
         renderer = editor.renderer,
         session = edit.EditSession,
@@ -15,7 +15,7 @@ require(['ace/ace'], function (ace) {
     renderer.setShowPrintMargin(false);
     editor.setTheme('theme/engine');
     editor.setKeyboardHandler({ handleKeyboard: function (data, hashId, textOrKey, keyCode, e) {
-      console.log('got ' + hashId + ' [' + textOrKey + '] ' + keyCode);
+      //console.log('got ' + hashId + ' [' + textOrKey + '] ' + keyCode);
 
       if (keyCode !== undefined) {
         editor.io.emit('keyboard', hashId, textOrKey, keyCode, editor.bufferName, responder(editor));
@@ -54,11 +54,30 @@ require(['ace/ace'], function (ace) {
       name: 'move-to-position', exec: function (env, args) {
         env.editor.moveCursorTo(args.row, args.column);
       }
+    }, {
+      name: 'execute-extended-command', exec: function () {
+        $('#meta').empty().append('<input id="gcli-input" type="text"/>');
+        $('#content').append('<div id="gcli-display"/>').wrapInner('<div class="hbox"/>');
+        gcli.createDisplay({settings: {eagerHelper: 1}});
+      }
     }]);
+
+    ['mousedown', 'dblclick', 'tripleclick', 'quadclick'].forEach (function (el) {
+      editor.on(el, function (e) {
+        if (e.type == 'mousedown') {
+          e.editor.io.emit('mouse', e.type, e.getButton(), e.getDocumentPosition(), editor.bufferName, responder(e.editor));
+        }
+        return e.preventDefault();
+      });
+    });
 
     editor.io.emit('load-buffer', '*scratch*', function (contents, position) {
       editor.setSession(new session(contents));
       editor.moveCursorTo(position.row, position.column);
+    });
+
+    require(['gcli/commands/help'], function (help) {
+      help.startup();
     });
   });
 });

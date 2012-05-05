@@ -5,3 +5,6 @@
 [submodule "resources/support/socket.io-client"]
 	path = resources/support/socket.io-client
 	url = https://github.com/LearnBoost/socket.io-client.git
+[submodule "resources/support/gcli"]
+	path = resources/support/gcli
+	url = https://github.com/joewalker/gcli.git
