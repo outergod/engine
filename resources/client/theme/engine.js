@@ -32,7 +32,6 @@ define(['ace/lib/dom'], function (dom) {
 \
 .ace-engine > * {\
 font-family: 'Inconsolata';\
-font-size: 14px;\
 }\
 \
 .ace-engine .ace_editor {\
