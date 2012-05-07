@@ -31,7 +31,7 @@
                [:title "Engine"]
                [:meta {:charset "utf-8"}]
                [:meta {:http-equiv "X-UA-Compatible" :content "chrome=1"}]
-               [:link {:rel "shortcut icon" :href "client/gears.png"}]
+               [:link {:rel "shortcut icon" :href "client/gears-32x32.png"}]
                [:link {:rel "stylesheet" :type "text/css" :media "screen" :href "client/main.css"}]
                [:script {:data-main "client/main" :src "client/require.js"}]]
               [:body
@@ -49,7 +49,7 @@
   (interleave [:box-orient :-webkit-box-orient :-moz-box-orient] (cycle [orient])))
 
 (defn css-box-flex [flex]
-  (interleave [:box-flex :-webkit-box-flex :-mox-box-flex] (cycle [flex])))
+  (interleave [:box-flex :-webkit-box-flex :-moz-box-flex] (cycle [flex])))
 
 (defmacro flexrule [selector & forms]
   `(apply rule ~selector (concat ~@forms)))
