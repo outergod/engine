@@ -8,7 +8,7 @@
            javax.xml.transform.stream.StreamResult
            javax.xml.transform.TransformerFactory))
 
-(def *pdf-example* (rope "a" (rope "bc" (rope "d" "ef"))))
+(def pdf-example (rope "a" (rope "bc" (rope "d" "ef"))))
 
 (defn svgdoc->string ; this thing is definitely missing in lacij
   [doc & options]
