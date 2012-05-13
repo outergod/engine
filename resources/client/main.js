@@ -1,11 +1,17 @@
 require(['ace/ace'], function (ace) {
-  return require(['jquery', 'ace/edit_session', 'ace/commands/command_manager', 'gcli/index', 'theme/engine', 'socket.io/socket.io'], function ($, edit, command, gcli) {
+  return require(['jquery', 'ace/edit_session', 'ace/range', 'ace/commands/command_manager', 'gcli/index', 'theme/engine', 'socket.io/socket.io'], function ($, edit, range, command, gcli) {
     var editor = ace.edit('editor'),
         renderer = editor.renderer,
         session = edit.EditSession,
         responder = function (editor) {
           return function (response) {
-            editor.commands.exec(response.command, { editor: editor }, response.args);
+            if (Object.prototype.toString.call (response) !== '[object Array]') {
+              response = [response];
+            }
+
+            response.forEach(function (value) {
+              editor.commands.exec(value.command, { editor: editor }, value.args);
+            });
           };
         };
 
@@ -13,7 +19,9 @@ require(['ace/ace'], function (ace) {
     editor.bufferName = '*scratch*';
     renderer.setShowGutter(false);
     renderer.setShowPrintMargin(false);
+    renderer.setHScrollBarAlwaysVisible(false);
     editor.setTheme('theme/engine');
+    editor.setFontSize('13px');
     editor.setKeyboardHandler({ handleKeyboard: function (data, hashId, textOrKey, keyCode, e) {
       //console.log('got ' + hashId + ' [' + textOrKey + '] ' + keyCode);
 
@@ -35,24 +43,16 @@ require(['ace/ace'], function (ace) {
         env.editor.insert(args.text);
       }
     }, {
-      name: 'backward-char', exec: function (env, args) {
-        env.editor.navigateLeft(1);
-      }
-    }, {
-      name: 'forward-char', exec: function (env, args) {
-        env.editor.navigateRight(1);
-      }
-    }, {
-      name: 'backward-delete-char', exec: function (env, args) {
-        env.editor.remove('left');
-      }
-    }, {
       name: 'delete-char', exec: function (env, args) {
         env.editor.remove('right');
       }
     }, {
       name: 'move-to-position', exec: function (env, args) {
         env.editor.moveCursorTo(args.row, args.column);
+      }
+    }, {
+      name: 'delete-range', exec: function (env, args) {
+        env.editor.session.remove(range.Range.fromPoints.apply(null, args));
       }
     }, {
       name: 'execute-extended-command', exec: function () {

@@ -26,7 +26,7 @@
  */
 
 define(['ace/lib/dom'], function (dom) {
-  var style = { isDark: false,
+  var style = { isDark: true,
                 cssClass: 'ace-engine',
                 cssText: "@import url(client/Inconsolata.css);\
 \
@@ -62,18 +62,22 @@ padding-right: 6px;\
 width: 1px;\
 background: #e8e8e8;\
 }\
+.ace-engine .ace_scroller {\
+background: black;\
+}\
 \
 .ace-engine .ace_text-layer {\
 cursor: text;\
+color: white;\
+text-shadow: 0 0 5px white, 0 0 10px white;\
 }\
 \
 .ace-engine .ace_cursor {\
-border-left: 2px solid black;\
+opacity: 0.2;\
+background: lightgray;\
 }\
 \
 .ace-engine .ace_cursor.ace_overwrite {\
-border-left: 0px;\
-border-bottom: 1px solid black;\
 }\
 \
 .ace-engine .ace_line .ace_invisible {\

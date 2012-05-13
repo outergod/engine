@@ -77,3 +77,12 @@
                    (rope-graph (rope (rope (rope (rope "Hello " "my "))
                                            (rope (rope (rope "na" "me i") (rope "s")) (rope (rope " Simon"))))))
                    (layout :hierarchical) build view svgdoc->string))
+
+(svgdispatcher "/devel/test-lconjoin.svg"
+               (-> (create-graph)
+                   (add-default-node-attrs :r 45 :shape :circle)
+                   (rope-graph (lconjoin
+                                (rope (rope (rope (rope "Hello " "my "))
+                                            (rope (rope (rope "na" "me i") (rope "s")) (rope (rope " Simon")))))
+                                "->> "))
+                   (layout :hierarchical) build view svgdoc->string))

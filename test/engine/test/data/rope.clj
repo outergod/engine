@@ -3,84 +3,114 @@
   (:require [clojurecheck.core :as cc]
             [engine.data.rope :as rope]))
 
-(def ascii (cc/int :lower 0 :upper 127))
-(def string-int (cc/int :lower 0 :upper 1048576))
-
-(defn rand-string
-  ([] (cc/string (fn [size] (char (ascii size)))))
-  ([length] (cc/string (fn [size] (char (ascii size))) :length (fn [_] length))))
-
-(defmacro with-rope-test-bindings [& body]
-  `(do
-     (binding [cc/*size-scale* ~(fn [n] (Math/pow n 3.5)),
-               cc/*trials* 50]
-       ~@body)
-     (binding [cc/*size-scale* ~(fn [n] (* n 2)),
-               cc/*trials* 1000]
-       ~@body)))
-
-(defmacro defropetest [name & body]
-  `(deftest ~name
-     (with-rope-test-bindings
-       ~@body)))
+(defmacro with-private-fns [[ns fns] & tests]
+  "Refers private fns from ns and runs tests in context."
+  `(let ~(reduce #(conj %1 %2 `(ns-resolve '~ns '~%2)) [] fns)
+     ~@tests))
 
 (deftest fib-seq-test
-  (is (= [0 1 1 2 3 5 8 13] (take 8 rope/fib-seq))))
+  (testing "First 8 Fibonacci numbers are matched in fib-seq"
+    (is (= [0 1 1 2 3 5 8 13] (take 8 rope/fib-seq)))))
 
-(deftest count-matches-test
-  (cc/property "count matches evaluates to the number of characters in a string"
-               [haystack (rand-string)
-                needle ascii]
-               (let [needle (char needle)]
-                 (is (== (->> haystack (re-seq (re-pattern (str "\\Q" needle "\\E"))) count)
-                         (rope/count-matches needle haystack))))))
+(deftest measurable?-test
+  (testing "All objects are considered measurable which are supposed to be"
+    (are [x y] (= x (rope/measurable? y))
+         true (rope/rope)
+         true nil
+         true "foo"
+         false 4
+         false [:foo]
+         false '(:foo))))
 
 (deftest rope?-test
-  (are [x y] (= x (rope/rope? y))
-       true (rope/rope)
-       false nil
-       false "foo"
-       false 4
-       false [:foo]
-       false '(:foo)))
+  (testing "All objects are considered ropes which are supposed to be"
+    (are [x y] (= x (rope/rope? y))
+         true (rope/rope)
+         false nil
+         false "foo"
+         false 4
+         false [:foo]
+         false '(:foo))))
 
-; deactivated until bug in clojurecheck fixed
-#_(deftest conc-test
-  (cc/property "conc produces flat strings until *leaf-cutoff-length* is reached"
-               [string (cc/string (fn [size] (char (ascii size))) :length (cc/int :lower 0 :upper rope/*leaf-cutoff-length*))]
-               (is (string? (rope/conc string ""))))
-  (cc/property "conc produces actual Ropes, if beyond *leaf-cutoff-length*"
-               [length (cc/int :lower (inc rope/*leaf-cutoff-length*)),
-                string (cc/string (fn [size] (char (ascii size))) :length (cc/int :lower (inc rope/*leaf-cutoff-length*)))]
-               #_(println length)
-               (is (rope/rope? (rope/conc string "")))))
+(deftest adding-up-measurements
+  (testing "Measurements add up as expected"
+    (are [x y] (= (apply rope/measurement x)
+                  (apply rope/measure+ (map rope/measure y)))
+         [0 0] [nil]
+         [0 0] [""]
+         [0 0] ["" nil "" nil]
+         [10 3] ["foo\nbar" "1\n\n"]
+         [10 3] [(rope/string->rope "foo\nbar") (rope/string->rope "1\n\n")]
+         [10 3] ["foo\nbar" (rope/string->rope "1\n\n")]
+         [10 3] [(rope/string->rope "foo\nbar") "1\n\n"])))
 
-(defropetest weigh-test
-  (cc/property "weighing a text container works independently from the underlying data structure"
-               [length string-int, string (rand-string length)]
-               (is (= length (count string))) ; cross-check
-               (is (= length (count (rope/string->rope string))))))
+(deftest splitting
+  (testing "Rope splitting leaves behind expected artifacts"
+    (let [r (rope/rope (rope/rope (rope/rope (rope/rope "12" "34")
+                                             "56")
+                                  "78"))]
+      (doseq [x (range (inc (count r)))]
+        (let [[left-rope target right-rope _] (rope/rope-split-at r x)]
+            (is (= (str r) (str left-rope target right-rope))))))))
 
-(defropetest report-test
-  (cc/property "all substrings requested match those of equivalent flat strings"
-               [length string-int, string (rand-string length),
-                start (cc/int :lower 0 :upper length)
-                end (cc/int :lower start :upper length)]
-               (is (= (subs string start end)
-                      (str (rope/report (rope/rope string) start end))))))
+(deftest nil-conc
+  (testing "conc on nil will always evaluate to the latter"
+    (doseq [x [nil :foo "a" 1 (rope/rope) []]]
+      (is (= x (rope/conc nil x))))))
 
-(defropetest insert-test
-  (cc/property "inserting strings works as expected"
-               [length string-int, string (rand-string length),
-                position (cc/int :lower 0 :upper length)
-                string2 (rand-string)]
-               (is (= (str (subs string 0 position) string2 (subs string position))
-                      (str (rope/insert (rope/rope string) position string2))))))
+(deftest merging
+  (with-private-fns [engine.data.rope [merge]]
+    (testing "Merging objects works as expected"
+      (are [x y] (= (str x) (str (apply merge y)))
+           "" ["" ""]
+           "" [(rope/rope) (rope/rope)]
+           "" [(rope/rope) ""]
+           "" ["" (rope/rope)]
+           "" [(rope/rope "") ""]
+           "" ["" (rope/rope "")]
+           "abc" ["abc" ""]
+           "abc" ["" "abc"]
+           "abc" [(rope/rope) "abc"]
+           "abc" ["abc" (rope/rope)]
+           "abc" ["" (rope/rope "abc")]
+           "abc" ["" (rope/rope "" "abc")]
+           "" [nil nil]
+           "" [(rope/rope) nil]
+           "" [nil (rope/rope)]
+           "" [(rope/rope "") nil]
+           "" [nil (rope/rope "")]
+           "abcdef" ["abc" "def"]
+           "abcdef" ["abc" (rope/rope "def")]
+           "abcdef" [(rope/rope "abc") "def"]))))
 
-(defropetest delete-test
-  (cc/property "deleting parts of a Rope works as expected"
-               [length string-int, string (rand-string length),
-                start (cc/int :lower 0 :upper length)
-                end (cc/int :lower start :upper length)]
-               (is (= (str (subs string 0 start) (subs string end))
-                      (str (rope/delete (rope/rope string) start end))))))
+(deftest conjoining
+  (testing "conjoin does its job at the right node"
+    (is (= (rope/rope (rope/rope (rope/rope (rope/rope "12" "34")
+                                            "56")
+                                 "X78"))
+           (rope/insert (rope/rope (rope/rope (rope/rope (rope/rope "12" "34")
+                                            "56")
+                                 "78"))
+                        6 "X")))))
+
+(deftest insertion
+  (testing "Rope insertion works as determined"
+    (let [s "12345678"
+          r (rope/rope (rope/rope (rope/rope (rope/rope "12" "34")
+                                             "56")
+                                  "78"))]
+      (doseq [x (range (inc (count r)))]
+        (is (= (str (subs s 0 x) "X" (subs s x))
+               (str (rope/insert r x "X"))))))))
+
+#_(deftest rope-editing-sequence
+  (testing "Editing sequences behaves as determined"
+    (is (= "This is the scratcfh buffer. Yes :)"
+           (-> (rope/string->rope "This is the scratch buffer.")
+               (rope/insert 8 "1") (rope/insert 9 "2") (rope/insert 10 "3")
+               (rope/delete 10 11) (rope/delete 9 10) (rope/delete 8 9)
+               (rope/insert 27 " ") (rope/insert 28 "Y") (rope/insert 29 "e")
+               (rope/insert 30 "s") (rope/insert 31 " ") (rope/insert 32 ":")
+               (rope/insert 33 ")")
+               (rope/insert 19 "f")
+               str)))))

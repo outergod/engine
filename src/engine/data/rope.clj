@@ -10,6 +10,7 @@ by Boehm, Hans-J; Atkinson, Russ; and Plass, Michael (December 1995), doi:10.100
 
 (def fib-seq (map first (iterate (fn [[a b]] [b (+ a b)]) [0 1])))
 (def ^:dynamic *leaf-cutoff-length* 64) ; This value has been determined optimal for split operations through benchmarking
+(def ^:private cpus (.. Runtime getRuntime availableProcessors))
 
 (defprotocol Measurable
   "Trivial protocol for things measurable
@@ -185,38 +186,82 @@ In other words: What a new Treeish-2-3 node would weigh with seq as its left chi
       (zip/node node))))
 
 (defn index-of
+  "The position of the first match in Rope
+
+Or nil, if none or not applicable.
+f is passed each leaf node and should evaluate to either an integer, if
+matching should stop and the total position returned by taking the callback
+result into account, or boolean true if index-of should continue, and lastly
+nil, to abort matching and have index-of evaluate to nil altogether."
+  [root f]
+  (loop [leafes (filter leaf? (rope-seq root)), acc ""]
+    (when-let [leaf (first leafes)]
+      (let [next (next leafes), string (str acc leaf), index (f string (nil? next))]
+        (cond (number? index) index
+              (true? index) (recur next string)
+              :default nil)))))
+
+(defn index-of-char
   "The position of the first matching char in Rope
 
-Or -1, if none or not applicable. Resembles String's indexOf."
+Resembles String's indexOf."
   [root char]
-  (loop [leafes (filter leaf? (rope-seq root)), pos 0]
-    (if (nil? leafes)
-      -1
-      (let [leaf (first leafes),
-            index (.indexOf leaf (str char))]
-        (if (= -1 index)
-          (recur (next leafes) (+ pos (count leaf)))
-          (+ pos index))))))
+  (index-of root (fn [s _] (let [result (.indexOf s (str char))]
+                             (or (= -1 result) result)))))
 
 (defn last-index-of
+  "The position of the last match in Rope
+
+Or nil, if none or not applicable.
+f is passed each leaf node and should evaluate to either an integer, if
+matching should stop and the total position returned by taking the callback
+result into account, or boolean true if last-index-of should continue, and
+lastly nil, to abort matching and have index-of evaluate to nil altogether."
+  [root f]
+  (loop [leafes (filter leaf? (rope-reverse-seq root)), acc ""]
+    (when-let [leaf (first leafes)]
+      (let [next (next leafes), string (str leaf acc), index (f string (nil? next))]
+        (cond (number? index) (+ index (- (count root) (count string)))
+              (true? index) (recur next string)
+              :default nil)))))
+
+(defn last-index-of-char
   "The position of the last matching char in Rope
 
-Or -1, if none or not applicable. Resembles String's lastIndexOf."
+Resembles String's lastIndexOf."
   [root char]
-  (loop [leafes (filter leaf? (rope-reverse-seq root)), end (count root)]
-    (if (nil? leafes)
-      -1
-      (let [leaf (first leafes),
-            index (.lastIndexOf leaf (str char)),
-            end (- end (count leaf))]
-        (if (= -1 index)
-          (recur (next leafes) end)
-          (+ end index))))))
+  (last-index-of root (fn [s _] (let [result (.lastIndexOf s (str char))]
+                                  (or (= -1 result) result)))))
+
+(defn rope-split-at
+  "Split Rope at index
+
+The additional remaining string index will be the fourth vector element"
+  [root index]
+  (if (= (count root) index)
+    [root "" (rope) 0]
+    (let [[left-rope string right-rope _] (split root (fn [weight _] (>= index (:length weight))))
+          position (- index (count left-rope))]
+      [left-rope string right-rope position])))
+
+(defn rope-partition
+  "Partition for Ropes
+
+Each list element is comprised of the left Rope and rest String of a split operation."
+  [n coll]
+  (lazy-seq
+   (cond (zero? (count coll)) nil
+         (< (count coll) n) (cons [coll] nil)
+         :default
+         (let [[left-rope string right-rope _] (rope-split-at coll n)]
+           (cons [left-rope string] (rope-partition n right-rope))))))
 
 (defn rope->string
-  "Flat string from Rope at root"
+  "Flat String from Rope"
   [root]
-  (apply str (->> (rope-seq root) (filter leaf?))))
+  (let [build #(apply str (->> (rope-seq %) (filter leaf?))),
+        step (-> (count root) (/ cpus) Math/ceil long (max 1))]
+    (->> root (rope-partition step) (pmap (fn [[r s]] (str (build r) s))) (apply str))))
 
 (defn rebalance
   "Rebalanced copy of the Rope provided
@@ -231,10 +276,10 @@ idiomatic Clojure and optimized for functional languages in general."
       (let [current (first coll), length (count current)]
         (if current
           (let [rest (next coll)]
-           (if (and (seq acc) (>= length max-length))
-             (let [[low high] (split-with #(>= length (fib-border (count %))) acc)]
-               (recur high (conj rest (rope (fold low) current)) (fib-border (count (first high)))))
-             (recur (cons current acc) rest (fib-border length))))
+            (if (and (seq acc) (>= length max-length))
+              (let [[low high] (split-with #(>= length (fib-border (count %))) acc)]
+                (recur high (conj rest (rope (fold low) current)) (fib-border (count (first high)))))
+              (recur (cons current acc) rest (fib-border length))))
           (fold acc))))))
 
 (defmethod cat :default [coll1 coll2]
@@ -253,7 +298,7 @@ input string."
             (if (> (count acc) 1)
               (recur (->> (partition-all 2 acc) (map #(apply rope %))))
               (first acc)))]
-    (->> (partition-all (-> (count string) (/ (.. Runtime getRuntime availableProcessors)) long (max 1)) string)
+    (->> (partition-all (-> (count string) (/ cpus) long (max 1)) string)
          (pmap (bound-fn [chunk]
                  (->> (partition-all *leaf-cutoff-length* chunk) (map #(apply str %)) build)))
          build rope)))
@@ -295,32 +340,30 @@ left tree plus the split leaf."
 
 ;; Presumably faster than iterating till zip/end?
 (defn conjoin
-  "conj for Ropes. x is concatenated to the depth-first end, i.e. rightmost node of the Rope
+  "conj for Ropes
 
+x is concatenated to the depth-first end, i.e. rightmost node of the Rope.
 Additional xs will be concatenated first."
   ([root x]
      {:pre [(rope? root)]}
      (loop [zipper (rope-zip root)]
-       (let [left-child (zip/down zipper) right-child (zip/right left-child)]
-         (cond (and right-child (rope? (zip/node right-child))) (recur right-child)
-               (and left-child (rope? (zip/node left-child))) (recur left-child)
+       (let [left-child (zip/down zipper), right-child (zip/right left-child)]
+         (cond (and right-child (zip/node right-child)) (recur right-child)
+               (and left-child (zip/node left-child)) (recur left-child)
                :default (-> zipper (zip/edit #(merge %1 %2) x) zip/root)))))
   ([root x & xs]
-     (clojure.tools.logging/debug (clojure.pprint/cl-format nil "going to merge [~a] [~a] ~{~^-> [~a]~}" root x xs))
-     (let [result (conjoin root (reduce merge x xs))]
-       (clojure.tools.logging/debug (format "result [%s]" result))
-       result)))
+     (conjoin root (reduce merge x xs))))
 
-(defn rope-split-at
-  "Split Rope at index
+(defn lconjoin [root x]
+  "Left conjoin
 
-The additional remaining string index will be the fourth vector element"
-  [root index]
-  (if (= (count root) index)
-    [root "" (rope) 0]
-    (let [[left-rope string right-rope _] (split root (fn [weight _] (>= index (:length weight))))
-          position (- index (count left-rope))]
-      [left-rope string right-rope position])))
+Merge x on the left of the very first leaf node."
+  {:pre [(rope? root)]}
+  (loop [zipper (rope-zip root)]
+    (let [left-child (zip/down zipper)]
+      (if (and left-child (zip/node left-child))
+        (recur left-child)
+        (-> zipper (zip/edit #(merge %2 %1) x) zip/root)))))
 
 (defn- split-lines
   [s]
@@ -336,6 +379,14 @@ then the same for everything right of the line."
         position (- index (:lines (measure left-rope))),
         [left-lines [line & right-lines]] (split-at position (split-lines string))]
     [left-rope left-lines line right-lines right-rope]))
+
+(defn split-merge
+  "Split Rope at index and merge back node chunks"
+  [root index]
+  {:pre [(rope? root)]}
+  (let [[l s r p] (rope-split-at root index),
+        ls (subs s 0 p), rs (subs s p)]
+    [(conjoin l ls) (lconjoin r rs)]))
 
 (defn insert
   "Insert string in Rope at index or line/column"
@@ -393,6 +444,7 @@ then the same for everything right of the line."
      (let [length (count root)]
       (cond (= start length) ""
             (> end length) (throw (IndexOutOfBoundsException. (str "Rope index out of range: " end)))
+            (= end length) (report root start)
             :default
             (let [[_ part1 right-rope position1] (rope-split-at root start)
                   length (- end start)
@@ -550,7 +602,7 @@ then the same for everything right of the line."
   "Fresh Rope from file"
   [path]
   (let [file (File. path), size (.length file),
-        step (-> size (/ (.. Runtime getRuntime availableProcessors)) Math/ceil long (max 1))]
+        step (-> size (/ cpus) Math/ceil long (max 1))]
     (letfn [(build [acc]
               (if (> (count acc) 1)
                 (recur (->> (partition-all 2 acc) (map #(apply rope %))))
@@ -560,24 +612,3 @@ then the same for everything right of the line."
                    (->> (span pos (inc limit) *leaf-cutoff-length*)
                         (map (fn [[start end]] (file-chunk file start (inc (- end start))))) build)))
            build rope))))
-
-(deftype LeafSeq [cache coll #^long length]
-  CharSequence
-  (charAt [_ index]
-    (if (< index (count @cache))
-      (nth @cache index)
-      (loop [coll coll, index index]
-        (if coll
-          (let [leaf (first coll), length (count leaf)]
-            (swap! cache str leaf)
-            (if (>= index length)
-              (recur (next coll) (- index length))
-              (nth leaf index)))
-          nil))))
-  
-  (length [_] length)
-  (subSequence [_ start end] nil)
-  (toString [_] (str cache (apply str coll))))
-
-(defn leaf-seq [root]
-  (LeafSeq. (atom "") (->> (rope-seq root) (filter leaf?)) (count root)))
