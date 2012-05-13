@@ -1,6 +1,6 @@
 (ns engine.test.data.rope
   (:use clojure.test clojure.test.tap)
-  (:require [clojurecheck.core :as cc]
+  (:require #_[clojurecheck.core :as cc]
             [engine.data.rope :as rope]))
 
 (defmacro with-private-fns [[ns fns] & tests]
