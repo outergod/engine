@@ -6,7 +6,8 @@
         [clojure.pprint :only [cl-format]]
         clj-logging-config.log4j)
   (:require [clojure.tools.logging :as log]
-            [clojure.java.io :as io])
+            [clojure.java.io :as io]
+            [clojure.stacktrace :as stacktrace])
   (:import [java.lang Long]
            [java.util Timer TimerTask]
            [clojure.lang Keyword PersistentArrayMap]
@@ -138,7 +139,7 @@
 (receive-all heartbeat-channel (fn [_])) ; all heartbeat messages are volatile
 
 (defn heartbeatfn []
-  (with-logging-config [:root {:level :debug :out socket-out}]
+  (with-logging-config [:root {:level :trace :out socket-out}]
     (log/debug "Bubump")
     (enqueue heartbeat-channel (websocket-message :heartbeat))))
 
@@ -201,7 +202,8 @@
             :noop (log/debug "Client sent noop (whatever)")
             (log/error (format "Ignoring unknown type %s for message %s" type message))))
         (catch Exception e
-          (log/error "Fatal error handling socket.io request:" e))))))
+          (log/error "Fatal error handling socket.io request:" e)
+          (log/trace (with-out-str (stacktrace/print-stack-trace e))))))))
 
 (defn socket [dispatcher]
   (fn [channel request]

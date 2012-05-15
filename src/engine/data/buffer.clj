@@ -145,3 +145,22 @@
 (defn backward-word [cursor]
   (dosync
    (-> cursor (backward #(part-match #"^\s+" %1 %2 true)) (backward #(part-match #"^\S+" %1 %2 true)))))
+
+(defn delta [cursor1 cursor2]
+  (->> [cursor1 cursor2] (map pos) (apply -) Math/abs))
+
+(defn- kill-word [cursor movefn deletefn]
+  (dosync (deletefn cursor (delta cursor (movefn cursor)))))
+
+(defn forward-kill-word [cursor]
+  (kill-word cursor forward-word forward-delete))
+
+(defn backward-kill-word [cursor]
+  (kill-word cursor backward-word backward-delete))
+
+(defn beginning-of-buffer [c]
+  (cursor (buffer c) 0))
+
+(defn end-of-buffer [c]
+  (let [root (buffer c)]
+   (cursor root (count @root))))

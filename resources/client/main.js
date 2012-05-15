@@ -39,12 +39,8 @@ require(['ace/ace'], function (ace) {
         editor.io.emit('keyboard', 0, args, undefined, editor.bufferName, responder(editor));
       }
     }, {
-      name: 'self-insert-command', exec: function (env, args) {
-        env.editor.insert(args.text);
-      }
-    }, {
-      name: 'delete-char', exec: function (env, args) {
-        env.editor.remove('right');
+      name: 'insert-text', exec: function (env, args) {
+        env.editor.session.insert(args.position, args.text);
       }
     }, {
       name: 'move-to-position', exec: function (env, args) {

@@ -2,7 +2,6 @@
   (:use lamina.core
         [clojure.string :only (blank? trim)])
   (:require [clojure.tools.logging :as log]
-            [clojure.stacktrace :as stacktrace]
             [engine.server.socket-io :as socket-io]
             [engine.data.rope :as rope]
             [engine.data.buffer :as buffer]))
@@ -16,24 +15,40 @@
                                (every? buffer/cursor? (vals %1)))),
          :error-mode :continue,
          :error-handler (fn [_ e]
-                          (log/error "Attempted to set buffers agent to illegal state:" e)
-                          (log/trace (with-out-str (stacktrace/print-stack-trace e))))))
+                          (log/error "Attempted to set buffers agent to illegal state:" e))))
 
 (defn send-buffer [buffer state]
   (send buffers assoc buffer state))
+
+(defn position-map [pos]
+  (zipmap [:row :column] pos))
 
 (defn command
   ([fn] {:command fn})
   ([fn args] {:command fn :args args}))
 
-(defn command-delete [before after]
-  [(command "delete-range" (->> [before after] (sort-by second) (map #(apply rope/translate %)) (map #(zipmap [:row :column] %))))])
+(defn rope-delta [before after]
+  (->> [before after] (sort-by second) (map #(apply rope/translate %)) (map position-map)))
+
+(defn command-insert [before after]
+  (let [[_ pos1] before, [root pos2] after]
+    [(command "insert-text" {:position (position-map (rope/translate root pos1))
+                             :text (str (rope/report root pos1 pos2))})]))
+
+(defn command-delete-forward [before after]
+  (let [delta (->> [before after] (map (comp count first)) (apply -)),
+        [root pos] before]
+    [(command "delete-range" (rope-delta before [root (+ pos delta)]))]))
+
+(defn command-delete-backward [before after]
+  [(command "delete-range" (rope-delta before after))])
 
 (defn server [socket event & args]
   (when-let [fun (ns-resolve 'engine.server (symbol event))]
     (let [session-agent (:session socket),
           {:keys [response state]} (fun args @session-agent)]
       (when state (send-off session-agent into [state]))
+      (log/debug (format "Response is %s" response))
       (or response (command "noop")))))
 
 (defn load-buffer [[name] _]
@@ -41,14 +56,6 @@
         rope @cursor,
         [row column] (rope/translate rope (buffer/pos cursor))]
     {:response [(str rope) {:row row :column column}]}))
-
-(defn synchronized-insert-sequence [buffer cursor s]
-  (send-buffer buffer (buffer/insert cursor s))
-  {:response (command "self-insert-command" {:text s})})
-
-(defn synchronized-delete> [buffer cursor]
-  (send-buffer buffer (buffer/forward-delete cursor))
-  {:response (command "delete-char")})
 
 (defn syncfn
   ([actionfn transfn]
@@ -62,6 +69,9 @@
          {:response (conj (or (transfn pre-state state) [])
                           (command "move-to-position" {:row row :column column}))})))
   ([actionfn] (syncfn actionfn (fn [& _] nil))))
+
+(defn insertfn [s]
+  #(buffer/insert % s))
 
 (defn bitmask-seq [& xs]
   (zipmap (iterate (partial * 2) 1) xs))
@@ -95,9 +105,9 @@
                        :state {:keymap nil}}}))
 
 (def fundamental-keymap
-  (keymap {#{:backspace} (syncfn buffer/backward-delete command-delete),
-           #{:return} #(synchronized-insert-sequence % (@buffers %) "\n"),
-           #{:space} #(synchronized-insert-sequence % (@buffers %) " "),
+  (keymap {#{:backspace} (syncfn buffer/backward-delete command-delete-backward),
+           #{:return} (syncfn (insertfn "\n") command-insert),
+           #{:space} (syncfn (insertfn " ") command-insert),
            #{:shift :space} (aliasfn #{:space}),
            #{:cursor-left} (syncfn buffer/backward-char),
            #{:ctrl "b"} (syncfn buffer/backward-char),
@@ -107,8 +117,8 @@
            #{:ctrl "f"} (syncfn buffer/forward-char),
            #{:cursor-down} (syncfn buffer/next-line),
            #{:ctrl "n"} (syncfn buffer/next-line),
-           #{:delete} #(synchronized-delete> % (@buffers %)),
-           #{:ctrl "d"} #(synchronized-delete> % (@buffers %)),
+           #{:ctrl "d"} (syncfn buffer/forward-delete command-delete-forward),
+           #{:delete} (aliasfn #{:ctrl "d"}),
            #{:home} (syncfn buffer/move-beginning-of-line),
            #{:ctrl "a"} (syncfn buffer/move-beginning-of-line),
            #{:end} (syncfn buffer/move-end-of-line),
@@ -117,20 +127,25 @@
            #{:alt "f"} (syncfn buffer/forward-word),
            #{:ctrl :cursor-left} (syncfn buffer/backward-word),
            #{:alt "b"} (syncfn buffer/backward-word),
+           #{:alt "d"} (syncfn buffer/forward-kill-word command-delete-forward),
+           #{:alt :backspace} (syncfn buffer/backward-kill-word command-delete-backward),
+           #{:alt :shift ","} (syncfn buffer/beginning-of-buffer),
+           #{:alt :shift "."} (syncfn buffer/end-of-buffer),
            #{:alt "x"} (fn [& _] {:response (command "execute-extended-command")}),
            #{:ctrl "x"} (fn [& _] {:state {:keymap keymap}})}))
 
 (defn keyboard [[hash-id key key-code buffer] state]
-  (let [key (trim key), cursor (@buffers buffer),
+  (let [key (trim key),
         input (disj (conj (modifier-keys hash-id)
                           (or (key-codes key-code) key))
                     nil ""),
         keymap (or (state :keymap) fundamental-keymap)]
+    (log/debug (format "Input interpreted as %s" input))
     (if-let [handler (keymap input)]
       (binding [*keymap* keymap] (handler buffer))
       (if (or key-code (blank? key))
         {:state {:keymap nil}}
-        (synchronized-insert-sequence buffer cursor key)))))
+        ((syncfn (insertfn key) command-insert) buffer)))))
 
 (defn synchronized-mouse-left [buffer cursor position]
   (send-buffer buffer (buffer/goto-char cursor (rope/translate @cursor (:row position) (:column position))))
