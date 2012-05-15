@@ -2,7 +2,7 @@ Engine - Engine new generation internet Emacs
 =============================================
 Engine is an attempt at creating an [Emacs class editor] using a very modern
 [Lisp dialect], [Clojure], while exposing the user interface through latest
-[web standards technologies] such as [HTML5] and [CCS3] with a [WebSockets]
+[web standards technologies] such as [HTML5] and [CSS3] with a [WebSockets]
 and [socket.io] based communication layer in between.
 
 
