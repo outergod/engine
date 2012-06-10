@@ -1,5 +1,5 @@
 require(['ace/ace'], function (ace) {
-  return require(['jquery', 'ace/edit_session', 'ace/range', 'ace/commands/command_manager', 'gcli/index', 'theme/engine', 'socket.io/socket.io'], function ($, edit, range, command, gcli) {
+  return require(['jquery', 'ace/edit_session', 'ace/range', 'ace/commands/command_manager', 'theme/engine', 'socket.io/socket.io'], function ($, edit, range, command) {
     var editor = ace.edit('editor'),
         renderer = editor.renderer,
         session = edit.EditSession,
@@ -52,9 +52,8 @@ require(['ace/ace'], function (ace) {
       }
     }, {
       name: 'execute-extended-command', exec: function () {
-        $('#meta').empty().append('<input id="gcli-input" type="text"/>');
-        $('#content').append('<div id="gcli-display"/>').wrapInner('<div class="hbox"/>');
-        gcli.createDisplay({settings: {eagerHelper: 1}});
+        //$('#meta').empty().append('<input id="engine-minibuffer" type="text"/>');
+        //$('#content').append('<div id="gcli-display"/>').wrapInner('<div class="hbox"/>');
       }
     }]);
 
@@ -70,10 +69,6 @@ require(['ace/ace'], function (ace) {
     editor.io.emit('load-buffer', '*scratch*', function (contents, position) {
       editor.setSession(new session(contents));
       editor.moveCursorTo(position.row, position.column);
-    });
-
-    require(['gcli/commands/help'], function (help) {
-      help.startup();
     });
   });
 });
