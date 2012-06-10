@@ -36,7 +36,6 @@
                        [&] (route/resources "/" {:root "support/ace/lib/ace"}))
    ["client" "pilot" &] (route/resources "/" {:root "support/ace/lib/pilot"})
    ["client" "socket.io" &] (route/resources "/" {:root "support/socket.io-client/dist"})
-   ["client" "gcli" &] (route/resources "/" {:root "support/gcli/lib/gcli"})
    ["client" &] (route/resources "/" {:root "client"})
    [&] (routes server-dispatch (route/not-found "Not found"))))
 
