@@ -33,6 +33,7 @@
                [:meta {:http-equiv "X-UA-Compatible" :content "chrome=1"}]
                [:link {:rel "shortcut icon" :href "client/gears-32x32.png"}]
                [:link {:rel "stylesheet" :type "text/css" :media "screen" :href "client/main.css"}]
+               [:script {:src "client/socket.io.js"}]
                [:script {:data-main "client/main" :src "client/require.js"}]]
               [:body
                [:div {:id "content"} [:pre {:id "editor"}]]

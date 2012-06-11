@@ -1,6 +1,3 @@
 [submodule "resources/support/ace"]
 	path = resources/support/ace
-	url = http://github.com/ajaxorg/ace.git
-[submodule "resources/support/socket.io-client"]
-	path = resources/support/socket.io-client
-	url = https://github.com/LearnBoost/socket.io-client.git
+	url = http://github.com/ajaxorg/ace
