@@ -37,7 +37,7 @@
                [:script {:data-main "client/main" :src "client/require.js"}]]
               [:body
                [:div {:id "content"} [:pre {:id "editor"}]]
-               [:div {:id "meta"}]]))]
+               [:div {:id "meta"} [:pre {:id "minibuffer"}]]]))]
   (defdispatcher "/"
     (fn [request]
       (assoc (handler request) :session (:session request)))))
@@ -63,5 +63,6 @@
         (flexrule "#content" (css-box-flex 1) (css-display-box)) (flexrule "#content > *" (css-box-flex 1))
         (flexrule ".hbox" (css-box-flex 1) (css-display-box) (css-box-orient "horizontal")) (rule ".hbox > *" :width "50%")
         (flexrule ".vbox" (css-box-flex 1) (css-display-box) (css-box-orient "vertical")) (rule ".vbox > *" :height "50%")
-        (rule "#meta" :height "20px") (rule "#meta > *" :width "100%" :margin 0)
-        (rule "#editor" :position "relative" :margin 0))))
+        (rule "#meta" :height "20px")
+        (rule "#editor" :position "relative" :margin 0)
+        (rule "#minibuffer" :position "relative" :margin 0 :height "100%"))))

@@ -77,6 +77,10 @@ opacity: 0.2;\
 background: lightgray;\
 }\
 \
+.ace-engine .ace_cursor.ace_hidden {\
+background: none;\
+}\
+\
 .ace-engine .ace_cursor.ace_overwrite {\
 }\
 \

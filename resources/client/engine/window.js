@@ -56,13 +56,12 @@ function (ace,       $,        edit,               range,       command) {
         }
       }, {
         name: 'execute-extended-command', exec: function () {
-          //$('#meta').empty().append('<input id="engine-minibuffer" type="text"/>');
-          //$('#content').append('<div id="gcli-display"/>').wrapInner('<div class="hbox"/>');
+          // FIXME
         }
       }]);
 
-      ['mousedown', 'dblclick', 'tripleclick', 'quadclick'].forEach (function (el) {
-        that.on(el, function (e) {
+      ['mousedown', 'dblclick', 'tripleclick', 'quadclick'].forEach (function (ev) {
+        that.on(ev, function (e) {
           if (e.type == 'mousedown') {
             e.editor.io.emit('mouse', e.type, e.getButton(), e.getDocumentPosition(), that.bufferName, responder(e.editor));
           }
