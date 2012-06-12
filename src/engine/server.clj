@@ -14,13 +14,27 @@
 (def syncfn (syncer buffers send-buffer))
 (def fundamental-keymap (fundamental-mode-keymap syncfn))
 
+(def broadcast-channel (permanent-channel))
+(receive-all broadcast-channel (fn [_]))
+
 (defn server [socket event & args]
   (when-let [fun (ns-resolve 'engine.server (symbol event))]
-    (let [session-agent (:session socket),
-          {:keys [response state]} (fun args @session-agent)]
-      (when state (send-off session-agent into [state]))
-      (log/debug (format "Response is %s" response))
-      (or response (command "noop")))))
+    (if (socket-io/reserved-event-names event)
+      (fun socket)
+      (let [session-agent (:session socket),
+            {:keys [response state]} (fun args @session-agent)
+            {:keys [response broadcast]} (group-by #(if (:broadcast (meta %)) :broadcast :response) response)]
+        (when state (send-off session-agent into [state]))
+        (log/debug (format "Response is %s" response))
+        (when broadcast
+          (log/debug (format "Broadcasting %s" broadcast))
+          (doseq [command broadcast] (enqueue broadcast-channel command)))
+        (or response (command "noop"))))))
+
+(defn connect [socket]
+  (let [receiver (channel)]
+    (receive-all receiver #(socket-io/send-event socket "broadcast" %))
+    (siphon broadcast-channel receiver)))
 
 (defn keyboard [[hash-id key key-code buffer] state]
   (let [key (trim key),

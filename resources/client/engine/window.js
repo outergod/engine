@@ -1,7 +1,10 @@
 // -*- mode: js2; indent-tabs-mode: nil; -*-
 define (['ace/ace', 'jquery', 'ace/edit_session', 'ace/range', 'ace/commands/command_manager'],
 function (ace,       $,        edit,               range,       command) {
-  return function (spec) {
+  var instances = {};
+  return {
+    instances: instances,
+    create: function (spec) {
       var that = ace.edit(spec.element),
           renderer = that.renderer,
           Session = edit.EditSession,
@@ -52,7 +55,7 @@ function (ace,       $,        edit,               range,       command) {
         }
       }, {
         name: 'delete-range', exec: function (env, args) {
-          env.editor.session.remove(range.Range.fromPoints.apply(null, args));
+          env.editor.session.remove(range.Range.fromPoints.apply(null, args.range));
         }
       }, {
         name: 'execute-extended-command', exec: function () {
@@ -74,6 +77,9 @@ function (ace,       $,        edit,               range,       command) {
         that.moveCursorTo(position.row, position.column);
       });
 
+      instances[spec.bufferName] = that;
+
       return that;
+    }
   };
 });

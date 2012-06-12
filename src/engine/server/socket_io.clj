@@ -25,6 +25,7 @@
 (def heartbeat-interval 20)
 (def socket-out (io/file "socket.log"))
 
+(def reserved-event-names #{"message" "connect" "disconnect" "open" "close" "error" "retry" "reconnect"})
 (def reserved-event-types #{"connect" "disconnect" "message" "ack"})
 
 (def message-types
@@ -151,6 +152,7 @@
 (let [timer-task (proxy [TimerTask] [] ; in such moments, I love clojure for making java bearable
                    (run [] (heartbeatfn)))]
   (doto heartbeat (.scheduleAtFixedRate timer-task (long 0) (long (* 1000 20)))))
+
 
 (defn handshake [request]
   (if-let [sid (and (:session request)
