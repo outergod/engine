@@ -1,6 +1,7 @@
 // -*- mode: js2; indent-tabs-mode: nil; -*-
 require(['ace/ace', 'theme/engine'], function () {
-  return require(['jquery', 'engine/window', 'engine/socket.io', 'ace/lib/event'], function ($, window, io, event) {
+  return require(['jquery', 'engine/window', 'engine/socket.io'],
+         function ($,        window,          io) {
     var socket = io.connect(), editor, minibuffer;
 
     socket.on('broadcast', function (command) {
