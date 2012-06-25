@@ -10,6 +10,7 @@
             [compojure.route :as route]
             [compojure.handler :as handler]
             [engine.middleware.log-request :as log-request]
+            [engine.middleware.alias-request :as alias-request]
             [engine.server.socket-io :as socket-io]))
 
 (defonce dispatch-table
@@ -31,14 +32,15 @@
    (wrap-session {:cookie-name "engine"})
    (log-request/log)
    (socket-io/socket.io-handler engine.server/server)
+   (alias-request/alias "/client/jquery.pnotify.js" "/client/pnotify/jquery.pnotify.min.js")
+   (alias-request/alias "/client/jquery.pnotify.css" "/client/pnotify/jquery.pnotify.default.css")
    ["client" "ace" &] (app
                        ["theme" &] (route/resources "/" {:root "support/ace/build/src"})
                        [&] (route/resources "/" {:root "support/ace/lib/ace"}))
    ["client" "pilot" &] (route/resources "/" {:root "support/ace/lib/pilot"})
-   ["client" "socket.io" &] (route/resources "/" {:root "support/socket.io-client/dist"})
+   ["client" "pnotify" &] (route/resources "/" {:root "support/pnotify"})
    ["client" &] (route/resources "/" {:root "client"})
    [&] (routes server-dispatch (route/not-found "Not found"))))
-
 
 (defn start-server []
   (start-http-server (wrap-ring-handler (fn [& args]
