@@ -1,3 +1,6 @@
 [submodule "resources/support/ace"]
 	path = resources/support/ace
 	url = http://github.com/ajaxorg/ace
+[submodule "resources/support/pnotify"]
+	path = resources/support/pnotify
+	url = https://github.com/sciactive/pnotify.git
