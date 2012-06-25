@@ -1,4 +1,4 @@
-// -*- mode: js2; indent-tabs-mode: nil; -*-
+// -*- mode: js; indent-tabs-mode: nil; -*-
 define(function () {
   return window.io;
 });
