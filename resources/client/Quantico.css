@@ -1,0 +1,6 @@
+@font-face {
+  font-family: 'Quantico';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Quantico'), local('Quantico-Regular'), url('/client/Quantico.ttf') format('truetype');
+}
