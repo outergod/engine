@@ -51,7 +51,7 @@
 
 (defn synchronized-mouse-left [buffer cursor position]
   (send-buffer buffer (cursor/goto-char cursor (rope/translate @cursor (:row position) (:column position))))
-  {:response (command "move-to-position" position)})
+  {:response [(command "move-to-position" position)]})
 
 (defn mouse [[type button position buffer] _]
   (let [cursor (@buffers buffer)]
