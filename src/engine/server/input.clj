@@ -1,10 +1,6 @@
 (ns engine.server.input
   (:use [clojure.string :only (blank? trim)]
-        engine.server.command)
-  (:require [clojure.tools.logging :as log]
-            [engine.server.socket-io :as socket-io]
-            [engine.data.cursor :as cursor]
-            [engine.data.buffer :as buffer]))
+        engine.server.command))
 
 (def ^:dynamic *keymap*)
 (defn aliasfn [key]
@@ -33,7 +29,9 @@
    40 :cursor-down,
    46 :delete})
 
-(defn keymap [map]
-  (into map
-        {#{:ctrl "g"} {:response (command "noop"),
-                       :state {:keymap nil}}}))
+(defn keymap
+  ([map]
+     (into map
+           {#{:ctrl "g"} {:response (command "noop"),
+                          :state {:keymap nil}}}))
+  ([] (keymap {})))

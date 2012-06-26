@@ -9,7 +9,7 @@
   (buffer [cursor])
   (pos [cursor])
   (pos-2d [cursor])
-  (goto-char [cursor n])
+  (goto-char [cursor n] [cursor row column])
   (forward-char [cursor])
   (backward-char [cursor])
   (next-line [cursor])
@@ -42,6 +42,8 @@
 
   (goto-char [_ n]
     (sanitize (cursor root n)))
+  (goto-char [this row column]
+    (goto-char this (rope/translate @root row column)))
   (forward-char [this]
     (if (< position (count @root))
       (cursor root (inc position))

@@ -9,10 +9,7 @@
             [engine.data.buffer :as buffer]))
 
 (defonce buffers (buffer/buffers))
-(def send-buffer (buffer/sender buffers))
 (def load-buffer (buffer/loader buffers))
-(def syncfn (syncer buffers send-buffer))
-(def fundamental-keymap (fundamental-mode-keymap syncfn))
 
 (def broadcast-channel (permanent-channel))
 (receive-all broadcast-channel (fn [_]))
@@ -36,24 +33,24 @@
     (receive-all receiver #(socket-io/send-event socket "broadcast" %))
     (siphon broadcast-channel receiver)))
 
-(defn keyboard [[hash-id key key-code buffer] state]
+(defn keyboard [[hash-id key key-code name] state]
   (let [key (trim key),
         input (disj (conj (modifier-keys hash-id)
                           (or (key-codes key-code) key))
                     nil ""),
-        keymap (or (state :keymap) fundamental-keymap)]
+        buffer (@buffers name),
+        keymap (or (state :keymap) (buffer/inputfn buffer))]
     (log/debug (format "Input interpreted as %s" input))
     (if-let [handler (keymap input)]
-      (binding [*keymap* keymap] (handler buffer))
+      (binding [*keymap* keymap] (handler))
       (if (or key-code (blank? key))
         {:state {:keymap nil}}
-        ((syncfn (insertfn key) command-insert) buffer)))))
+        (buffer/trans buffer (insertfn key) command-insert)))))
 
-(defn synchronized-mouse-left [buffer cursor position]
-  (send-buffer buffer (cursor/goto-char cursor (rope/translate @cursor (:row position) (:column position))))
-  {:response [(command "move-to-position" position)]})
+(defn synchronized-mouse-left [name position]
+  (let [{:keys [row column]} position]
+    (buffer/trans (@buffers name) #(cursor/goto-char % row column))))
 
-(defn mouse [[type button position buffer] _]
-  (let [cursor (@buffers buffer)]
-    (when (and (= type "mousedown") (= button 0))
-      (synchronized-mouse-left buffer cursor position))))
+(defn mouse [[type button position name] _]
+  (when (and (= type "mousedown") (= button 0))
+    (synchronized-mouse-left name position)))
