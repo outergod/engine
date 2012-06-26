@@ -35,7 +35,7 @@ define(['engine/jquery'], function ($) {
       };
 
       that.vanish = function (duration) {
-        duration = duration || 1000;
+        duration = duration || 500;
         $el.animate({ opacity: 0 }, {
           duration: duration,
           complete: function () { $el.remove(); }

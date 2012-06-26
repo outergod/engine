@@ -63,7 +63,9 @@ window.add(browser);
 browser.web_view.signal.console_message.connect(function (el, message) { 
     if (message == 'splash::done') {
         var engine = new Gtk.Window({ 
-            title: 'Engine'
+            title: 'Engine',
+            default_width: 1280,
+            default_height: 768
         });        
         engine.maximize();
         browser.reparent(engine);
