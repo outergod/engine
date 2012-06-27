@@ -3,7 +3,8 @@ define (['engine/window', 'jquery'],
 function (window,          $) {
   return {
     create: function (spec) {
-      var that = window.create(spec), active = false, _focus = that.focus;
+      var that = window.create($.extend(spec, { bufferName: '*minibuffer*' })),
+          active = false, _focus = that.focus;
 
       that.focus = function () {
         if (active) {

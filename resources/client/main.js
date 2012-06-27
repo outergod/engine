@@ -51,7 +51,6 @@ require(['engine/splash'], function (splash) {
         minibuffer.create({
           element: 'minibuffer',
           io: socket,
-          bufferName: '*minibuffer*',
           theme: 'theme/engine',
           fontSize: '13px'
         });
