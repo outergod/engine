@@ -163,11 +163,12 @@
 
 (defn deathwatch [channel timeout] 
   (future
-    (let [dup (fork channel)]
-      (while (not (drained? channel))
-        (try (wait-for-message channel (* 1000 timeout))
-             (catch TimeoutException _ (log/info "Timeout and closing") (close channel))
-             (catch Exception e (log/error "Caught and closing " e) (close channel)))))))
+    (with-logging-config [:root {:level :trace :out socket-out}]
+      (let [dup (fork channel)]
+        (while (not (drained? channel))
+          (try (wait-for-message channel (* 1000 timeout))
+               (catch TimeoutException _ (log/info "Timeout and closing") (close channel))
+               (catch Exception e (log/error "Caught and closing " e) (close channel))))))))
 
 (defn handle-ack [socket id data data-ack?]
   (cond (and data-ack? (not id))
@@ -177,7 +178,7 @@
 
 (defn message-handler [socket dispatcher]
   (fn [message]
-    (with-logging-config [:root {:level :debug :out socket-out}]
+    (with-logging-config [:root {:level :trace :out socket-out}]
       (try
         (when-let [[type id data-ack endpoint data] (translate-message message)]
           (case type
