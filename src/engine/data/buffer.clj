@@ -1,5 +1,6 @@
 (ns engine.data.buffer
-  (:use engine.data.mode)
+  (:use engine.data.mode
+        [engine.server.command :only (command)])
   (:require [engine.data.rope :as rope]
             [engine.data.cursor :as cursor]
             [clojure.tools.logging :as log])
@@ -19,7 +20,7 @@
                           [@state (cursor/pos state)])),
           [row column] (apply rope/translate state)]
       {:response (conj (or (transfn pre-state state name) [])
-                       {:command "move-to-position" :args {:row row :column column}})}))
+                       (command "move-to-position" {:row row :column column}))}))
   (trans [this actionfn] (trans this actionfn (fn [& _] nil)))
 
   (inputfn [this]
@@ -29,20 +30,28 @@
   (deref [_] @cursor))
 
 (defmethod print-method Buffer [buffer writer]
-  (print-simple (format "#<Buffer %s -> %s>" (:name buffer) (pr-str @ buffer)) writer))
-
-(defn buffer [name ^Cursor cursor updatefn keymapfn]
-  (Buffer. name cursor updatefn keymapfn nil nil))
-
-(defn buffer? [x]
-  (instance? Buffer x))
+  (print-simple (format "#<Buffer %s -> %s>" (:name buffer) (pr-str (:cursor buffer))) writer))
 
 (defn sender [^Agent buffers name]
   (fn [state]
     (send buffers assoc name state)))
 
+(defn buffer [name updatefn & {:keys [cursor keymapfn mode file]
+                               :or {cursor (cursor/cursor "" 0) keymapfn fundamental-mode-keymap}}]
+  (Buffer. name cursor updatefn keymapfn mode file))
+
+
+(defn buffer? [x]
+  (instance? Buffer x))
+
+(defn create-buffer [^Agent buffers name & args]
+  (send buffers assoc name (apply buffer name (sender buffers name) args))
+  (@buffers name))
+
 (defn loader [^Agent buffers]
   (fn [[name] _]
+    (when-not (@buffers name)
+      (create-buffer buffers name))
     (let [cursor (get-in @buffers [name :cursor]),
           rope @cursor,
           [row column] (rope/translate rope (cursor/pos cursor))]
@@ -60,6 +69,5 @@
   ([]
      (let [buffers (buffers {}),
            name "*scratch*"]
-       (send buffers assoc name
-             (buffer name (cursor/cursor "This is the scratch buffer." 0) (sender buffers name) fundamental-mode-keymap))
+       (create-buffer buffers "*scratch*" :cursor (cursor/cursor "This is the scratch buffer." 0))
        buffers)))
