@@ -1,12 +1,11 @@
 (ns engine.core
   (:use [lamina.core :only (enqueue async)]
-        [aleph.http]
+        aleph.http
         [ring.middleware.stacktrace :only (wrap-stacktrace)]
         [ring.middleware.session :only (wrap-session)]
         [net.cgrand.moustache :only (app)]
         [compojure.core :only (routes)])
   (:require [engine server]
-            [engine.data.buffer :as buffer]
             [compojure.route :as route]
             [compojure.handler :as handler]
             [engine.middleware.log-request :as log-request]
