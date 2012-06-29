@@ -9,6 +9,7 @@
   (buffer [cursor])
   (pos [cursor])
   (pos-2d [cursor])
+  (looking-at [cursor])
   (goto-char [cursor n] [cursor row column])
   (forward-char [cursor])
   (backward-char [cursor])
@@ -39,6 +40,8 @@
   (buffer [_] root)
   (pos [_] position)
   (pos-2d [_] (rope/translate @root position))
+  (looking-at [_]
+    (nth @root position))
 
   (goto-char [_ n]
     (sanitize (cursor root n)))
@@ -151,14 +154,17 @@
 (defn delta [cursor1 cursor2]
   (->> [cursor1 cursor2] (map pos) (apply -) Math/abs))
 
-(defn- kill-word [cursor movefn deletefn]
+(defn- kill-section [cursor movefn deletefn]
   (dosync (deletefn cursor (delta cursor (movefn cursor)))))
 
 (defn forward-kill-word [cursor]
-  (kill-word cursor forward-word forward-delete))
+  (kill-section cursor forward-word forward-delete))
 
 (defn backward-kill-word [cursor]
-  (kill-word cursor backward-word backward-delete))
+  (kill-section cursor backward-word backward-delete))
+
+(defn kill-line [cursor]
+  (kill-section cursor (if (= \newline (looking-at cursor)) forward-char move-end-of-line) forward-delete))
 
 (defn beginning-of-buffer [c]
   (cursor (buffer c) 0))
