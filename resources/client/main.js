@@ -45,22 +45,16 @@ require(['engine/splash'], function (splash) {
         minibuffer_editor = minibuffer.create({
           element: 'minibuffer',
           io: socket,
-          command: command,
           theme: 'theme/engine',
           fontSize: '13px'
         });
 
-        command.addCommands({
-          'execute-extended-command': function () {
-            alert('execute-extended-command called, implement me!');
-          }
-        });
+        $.extend(commander.defaults.commands, { 'execute-extended-command': minibuffer_editor.activate });
 
         editor = window.create({
           element: 'editor',
           bufferName: '*scratch*',
           io: socket,
-          command: command,
           theme: 'theme/engine',
           fontSize: '13px'
         });

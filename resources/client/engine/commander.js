@@ -12,11 +12,15 @@ function ($,        command,                        range) {
       },
       'delete-range': function (env, args) {
         env.editor.session.remove(range.Range.fromPoints.apply(null, args.range));
+      },
+      'clear': function (env) {
+        env.editor.clear();
       }
     }
   };
 
   return {
+    defaults: defaults,
     create: function (spec) {
       var that = new command.CommandManager('win'), commands = $.extend({}, defaults.commands, spec);
       that.addCommands(commands);

@@ -22,7 +22,8 @@
   (backward-delete [cursor] [cursor n])
   (forward [cursor f])
   (backward [cursor f])
-  (sanitize [cursor]))
+  (sanitize [cursor])
+  (purge [cursor]))
 
 (deftype Cursor [^Ref root ^long position])
 
@@ -120,6 +121,9 @@
     (cond (neg? position) (cursor root 0)
           (> position (count @root)) (cursor root (count @root))
           :default this))
+
+  (purge [_]
+    (cursor "" 0))
 
   IDeref
   (deref [_] @root))

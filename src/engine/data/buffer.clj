@@ -20,7 +20,7 @@
                           [@state (cursor/pos state)])),
           [row column] (apply rope/translate state)]
       {:response (conj (or (transfn pre-state state name) [])
-                       (command "move-to-position" {:row row :column column}))}))
+                       (command "move-to-position" :row row :column column))}))
   (trans [this actionfn] (trans this actionfn (fn [& _] nil)))
 
   (inputfn [this]

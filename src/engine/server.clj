@@ -11,6 +11,8 @@
 (defonce buffers (buffer/buffers))
 (def load-buffer (buffer/loader buffers))
 (def load-minibuffer (buffer/loader buffers :mode "minibuffer" :keymapfn minibuffer-mode-keymap))
+(defn activate-minibuffer [[name {:keys [prompt args]}] _]
+  (buffer/trans (@buffers name) (insertfn (str prompt args)) command-insert))
 
 (def broadcast-channel (permanent-channel))
 (receive-all broadcast-channel (fn [_]))
