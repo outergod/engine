@@ -1,25 +1,33 @@
-// -*- mode: js2; indent-tabs-mode: nil; -*-
-define (['ace/ace', 'jquery', 'ace/edit_session', 'ace/range', 'ace/commands/command_manager'],
-function (ace,       $,        edit,               range,       command) {
-  var instances = {};
+// -*- mode: js; indent-tabs-mode: nil; -*-
+define (['ace/ace', 'jquery', 'ace/edit_session', 'ace/commands/command_manager'],
+function (ace,       $,        edit,               command) {
+  var instances = {},
+      defaults = {
+        loader: 'load-buffer',
+        highline: true,
+        command: function () {}
+      };
+
   return {
     instances: instances,
+    defaults: defaults,
     create: function (spec) {
-      var that = ace.edit(spec.element),
-          renderer = that.renderer,
-          Session = edit.EditSession,
-          responder = function (editor) {
-            return function (response) {
-              if (Object.prototype.toString.call (response) !== '[object Array]') {
-                response = [response];
-              }
+      var that = ace.edit(spec.element), renderer = that.renderer, Session = edit.EditSession, responder;
+        
+      spec = $.extend({}, defaults, spec);
 
-              response.forEach(function (value) {
-                editor.commands.exec(value.command, { editor: editor }, value.args);
-              });
-            };
-          };
+      responder = function (editor) {
+        return function (response) {
+          if (Object.prototype.toString.call (response) !== '[object Array]') {
+            response = [response];
+          }
 
+          response.forEach(function (value) {
+            spec.command.exec(value.command, { editor: editor }, value.args);
+          });
+        };
+      };
+      
       renderer.setShowGutter(false);
       renderer.setShowPrintMargin(false);
       renderer.setHScrollBarAlwaysVisible(false);
@@ -28,7 +36,7 @@ function (ace,       $,        edit,               range,       command) {
       that.bufferName = spec.bufferName;
       that.setTheme(spec.theme);
       that.setFontSize(spec.fontSize);
-
+      that.setHighlightActiveLine(spec.highline);
       that.setKeyboardHandler({ handleKeyboard: function (data, hashId, textOrKey, keyCode, e) {
         //console.log('got ' + hashId + ' [' + textOrKey + '] ' + keyCode);
 
@@ -40,26 +48,8 @@ function (ace,       $,        edit,               range,       command) {
       }});
 
       that.commands = new command.CommandManager('win', [{
-        name: 'noop', exec: function () {} // only here to stop event propagation, see above
-      }, {
-        name: 'insertstring', exec: function (editor, args) {
+        name: 'insertstring', exec: function (editor, args) { // this must be *here*!
           editor.io.emit('keyboard', 0, args, undefined, editor.bufferName, responder(editor));
-        }
-      }, {
-        name: 'insert-text', exec: function (env, args) {
-          env.editor.session.insert(args.position, args.text);
-        }
-      }, {
-        name: 'move-to-position', exec: function (env, args) {
-          env.editor.moveCursorTo(args.row, args.column);
-        }
-      }, {
-        name: 'delete-range', exec: function (env, args) {
-          env.editor.session.remove(range.Range.fromPoints.apply(null, args.range));
-        }
-      }, {
-        name: 'execute-extended-command', exec: function () {
-          // FIXME
         }
       }]);
 
@@ -72,7 +62,7 @@ function (ace,       $,        edit,               range,       command) {
         });
       });
 
-      that.io.emit('load-buffer', that.bufferName, function (contents, position) {
+      that.io.emit(spec.loader, that.bufferName, function (contents, position) {
         that.setSession(new Session(contents));
         that.moveCursorTo(position.row, position.column);
       });

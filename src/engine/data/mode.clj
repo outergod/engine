@@ -29,5 +29,10 @@
            #{:alt :backspace} #(syncfn cursor/backward-kill-word command-delete-backward),
            #{:alt :shift ","} #(syncfn cursor/beginning-of-buffer),
            #{:alt :shift "."} #(syncfn cursor/end-of-buffer),
-           #{:alt "x"} (fn [& _] {:response (command "execute-extended-command")}),
+           #{:ctrl "k"} #(syncfn cursor/kill-line command-delete-forward),
+           #{:alt "x"} (fn [& _] {:response [(command "execute-extended-command")]}),
            #{:ctrl "x"} (fn [& _] {:state {:keymap (keymap)}})}))
+
+(defn minibuffer-mode-keymap [syncfn]
+  (assoc (fundamental-mode-keymap syncfn)
+    #{:return} {:response (command "minibuffer-exit")}))

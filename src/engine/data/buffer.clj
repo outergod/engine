@@ -48,10 +48,10 @@
   (send buffers assoc name (apply buffer name (sender buffers name) args))
   (@buffers name))
 
-(defn loader [^Agent buffers]
+(defn loader [^Agent buffers & opts]
   (fn [[name] _]
     (when-not (@buffers name)
-      (create-buffer buffers name))
+      (apply create-buffer buffers name opts))
     (let [cursor (get-in @buffers [name :cursor]),
           rope @cursor,
           [row column] (rope/translate rope (cursor/pos cursor))]

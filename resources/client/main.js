@@ -17,7 +17,7 @@ require(['engine/splash'], function (splash) {
       var args = Array.prototype.splice.call(arguments, 0), current;
       if (args.length) {
         current = args.shift();
-        loader.queue(50/modules.length, 'Loading AMD module ' + current, function () {
+        loader.queue(30/modules.length, 'Loading AMD module ' + current, function () {
           require([current], function () { load.apply(null, args); });
         });
       } else {
@@ -26,49 +26,68 @@ require(['engine/splash'], function (splash) {
     };
 
     load.apply(null, modules);
-  }) (['ace/ace', 'theme/engine', 'engine/window', 'engine/minibuffer', 'engine/socket.io', 'jquery-ui', 'jquery.pnotify'], function () {
-    loader.queue(25, 'Establishing WebSocket connection', function () { socket = io.connect(); });
-    require(['engine/jquery', 'engine/window', 'engine/minibuffer', 'engine/socket.io'],
-    function ($,               window,          minibuffer,          io) {
-      loader.queue(25, 'Creating GUI', function () {
-        var editor;
+  }) (['ace/ace', 'theme/engine', 'engine/window', 'engine/minibuffer', 'engine/socket.io', 'engine/commander', 'jquery-ui', 'jquery.pnotify'], function () {
+    loader.queue(5, 'Establishing WebSocket connection', function () { socket = io.connect(); });
+    require(['engine/jquery', 'engine/window', 'engine/minibuffer', 'engine/socket.io', 'engine/commander'],
+    function ($,               window,          minibuffer,          io,                 commander) {
+      loader.queue(65, 'Creating GUI', function () {
+        var editor, minibuffer_editor, command;
 
-        socket.on('broadcast', function (command) {
-          var editor = window.instances[command.args.buffer];
+        command = commander.create();
+
+        socket.on('broadcast', function (data) {
+          var editor = window.instances[data.args.buffer];
           if (editor) {
-            editor.commands.exec(command.command, { editor: editor }, command.args);
+            command.exec(data.command, { editor: editor }, data.args);
+          }
+        });
+
+        minibuffer_editor = minibuffer.create({
+          element: 'minibuffer',
+          io: socket,
+          command: command,
+          theme: 'theme/engine',
+          fontSize: '13px'
+        });
+
+        command.addCommands({
+          'execute-extended-command': function () {
+            alert('execute-extended-command called, implement me!');
           }
         });
 
         editor = window.create({
           element: 'editor',
-          io: socket,
           bufferName: '*scratch*',
-          theme: 'theme/engine',
-          fontSize: '13px'
-        });
-
-        minibuffer.create({
-          element: 'minibuffer',
           io: socket,
+          command: command,
           theme: 'theme/engine',
           fontSize: '13px'
         });
 
         editor.focus();
-
-        $.extend($.pnotify.defaults, {
-          styling: 'jqueryui',
-          history: false,
-          delay: 3000,
-          animation: {
-            effect_in: 'drop',
-            effect_out: 'drop',
-            options_in: { direction: 'up' },
-            options_out: { direction: 'up' }
-          }
-        });
       });
     });
+
+    $.extend($.pnotify.defaults, {
+      styling: 'jqueryui',
+      history: false,
+      delay: 3000,
+      animation: {
+        effect_in: 'drop',
+        effect_out: 'drop',
+        options_in: { direction: 'up' },
+        options_out: { direction: 'up' }
+      }
+    });
+
+    window.alert = function (message) {
+      $.pnotify({
+        title: 'Alert',
+        type: 'error',
+        icon: 'ui-icon ui-icon-script',
+        text: message
+      });
+    };
   });
 });

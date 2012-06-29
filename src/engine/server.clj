@@ -10,6 +10,7 @@
 
 (defonce buffers (buffer/buffers))
 (def load-buffer (buffer/loader buffers))
+(def load-minibuffer (buffer/loader buffers :mode "minibuffer" :keymapfn minibuffer-mode-keymap))
 
 (def broadcast-channel (permanent-channel))
 (receive-all broadcast-channel (fn [_]))
