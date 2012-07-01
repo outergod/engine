@@ -1,6 +1,6 @@
 // -*- mode: js; indent-tabs-mode: nil; -*-
-define (['jquery', 'ace/editor', 'ace/virtual_renderer', 'engine/session', 'engine/commander', 'ace/commands/command_manager'],
-function ($,        edit,         render,                 session,          commander,          command_manager) {
+define (['jquery', 'ace/editor', 'ace/virtual_renderer', 'engine/session', 'engine/commander'],
+function ($,        edit,         render,                 session,          commander) {
   var instances = {},
       defaults = {
         loader: 'load-buffer',
@@ -69,11 +69,11 @@ function ($,        edit,         render,                 session,          comm
       };
 
       // This is absolutely required to make insertion work, as-is.
-      that.commands = new command_manager.CommandManager('win', [{
-        name: 'insertstring', exec: function (editor, args) { // this must be *here*!
+      that.commands = commander.create({
+        insertstring: function (editor, args) { // this must be *here*!
           editor.io.emit('keyboard', 0, args, undefined, editor.bufferName, that.responder());
         }
-      }]);
+      });
 
       that.setKeyboardHandler({ handleKeyboard: function (data, hashId, textOrKey, keyCode, e) {
         //console.log('got ' + hashId + ' [' + textOrKey + '] ' + keyCode);
