@@ -1,33 +1,41 @@
 // -*- mode: js; indent-tabs-mode: nil; -*-
-define (['jquery', 'ace/editor', 'ace/undomanager', 'ace/virtual_renderer', 'engine/session', 'engine/commander', 'ace/commands/command_manager'],
-function ($,        edit,         undomanager,       renderer,               session,          commander,          command_manager) {
+define (['jquery', 'ace/editor', 'ace/virtual_renderer', 'engine/session', 'engine/commander', 'ace/commands/command_manager'],
+function ($,        edit,         render,                 session,          commander,          command_manager) {
   var instances = {},
       defaults = {
         loader: 'load-buffer',
         highline: true
       }, init;
   
-  init = function ($el) {
-    var el = $el.get(0);
+  init = function (spec) {
+    var el = spec.element.get(0), doc, renderer, editor, env;
+    spec.element.empty();
+    renderer = new render.VirtualRenderer(el, require(spec.theme))
+    editor = new edit.Editor(renderer);
+    session.create(spec, { editor: editor });
 
-    var doc = session.create({ contents: $el.text() });
-    doc.setUndoManager(new undomanager.UndoManager());
-    el.innerHTML = '';
+    renderer.setShowGutter(false);
+    renderer.setShowPrintMargin(false);
+    renderer.setHScrollBarAlwaysVisible(false);
 
-    var editor = new edit.Editor(new renderer.VirtualRenderer(el, require("theme/engine")));
-    editor.setSession(doc);
+    env = { 
+      document: doc,
+      editor: editor
+    };
 
-    var env = {};
-    env.document = doc;
-    env.editor = editor;
     editor.resize();
     $(window).resize(function () {
       editor.resize();
     });
+
     el.env = env;
-    // Store env on editor such that it can be accessed later on from
-    // the returned object.
+
     editor.env = env;
+    editor.io = spec.io;
+    editor.bufferName = spec.bufferName;
+    editor.setFontSize(spec.fontSize);
+    editor.setHighlightActiveLine(spec.highline);
+
     return editor;
   };
 
@@ -35,31 +43,13 @@ function ($,        edit,         undomanager,       renderer,               ses
     instances: instances,
     defaults: defaults,
     create: function (spec, my) {
-      var that = init(spec.element), renderer = that.renderer, command;
+      var that, command;
       
       my = my ? my : {};
       spec = $.extend({}, defaults, spec);
+      that = init(spec);
       command = commander.create(my.commands);
       
-      renderer.setShowGutter(false);
-      renderer.setShowPrintMargin(false);
-      renderer.setHScrollBarAlwaysVisible(false);
-
-      that.io = spec.io;
-      that.bufferName = spec.bufferName;
-      that.setTheme(spec.theme);
-      that.setFontSize(spec.fontSize);
-      that.setHighlightActiveLine(spec.highline);
-      that.setKeyboardHandler({ handleKeyboard: function (data, hashId, textOrKey, keyCode, e) {
-        //console.log('got ' + hashId + ' [' + textOrKey + '] ' + keyCode);
-
-        if (keyCode !== undefined) {
-          that.io.emit('keyboard', hashId, textOrKey, keyCode, that.bufferName, that.responder());
-        }
-
-        return hashId === 0 || hashId === 4 ? {} : { command: 'noop' }; // noop prevents propagation of e.g. ctrl+r; empty object return still propagates event -> insertstring
-      }});
-
       that.responder = function (callback) {
         return function (response) {
           if (Object.prototype.toString.call (response) !== '[object Array]') {
@@ -85,6 +75,16 @@ function ($,        edit,         undomanager,       renderer,               ses
         }
       }]);
 
+      that.setKeyboardHandler({ handleKeyboard: function (data, hashId, textOrKey, keyCode, e) {
+        //console.log('got ' + hashId + ' [' + textOrKey + '] ' + keyCode);
+
+        if (keyCode !== undefined) {
+          that.io.emit('keyboard', hashId, textOrKey, keyCode, that.bufferName, that.responder());
+        }
+
+        return hashId === 0 || hashId === 4 ? {} : { command: 'noop' }; // noop prevents propagation of e.g. ctrl+r; empty object return still propagates event -> insertstring
+      }});
+
       ['mousedown', 'dblclick', 'tripleclick', 'quadclick'].forEach (function (ev) {
         that.on(ev, function (e) {
           if (e.type == 'mousedown') {
@@ -92,11 +92,6 @@ function ($,        edit,         undomanager,       renderer,               ses
           }
           return e.preventDefault();
         });
-      });
-
-      that.io.emit(spec.loader, that.bufferName, function (contents, position) {
-        that.setSession(session.create({ contents: contents }));
-        that.moveCursorTo(position.row, position.column);
       });
 
       instances[spec.bufferName] = that;
