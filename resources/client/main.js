@@ -43,7 +43,7 @@ require(['engine/splash'], function (splash) {
         });
 
         minibuffer_editor = minibuffer.create({
-          element: 'minibuffer',
+          element: $('#minibuffer'),
           io: socket,
           theme: 'theme/engine',
           fontSize: '13px'
@@ -52,7 +52,7 @@ require(['engine/splash'], function (splash) {
         $.extend(commander.defaults.commands, { 'execute-extended-command': minibuffer_editor.activate });
 
         editor = window.create({
-          element: 'editor',
+          element: $('#editor'),
           bufferName: '*scratch*',
           io: socket,
           theme: 'theme/engine',

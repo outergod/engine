@@ -1,36 +1,27 @@
 // -*- mode: js; indent-tabs-mode: nil; -*-
-define (['ace/ace', 'jquery', 'ace/edit_session', 'engine/commander', 'ace/commands/command_manager'],
-function (ace,       $,        edit,               commander,          command_manager) {
+define (['jquery', 'ace/editor', 'ace/undomanager', 'ace/virtual_renderer', 'engine/session', 'engine/commander', 'ace/commands/command_manager'],
+function ($,        edit,         undomanager,       renderer,               session,          commander,          command_manager) {
   var instances = {},
       defaults = {
         loader: 'load-buffer',
         highline: true
       }, init;
   
-  var Dom = require("ace/lib/dom");
-  var Event = require("ace/lib/event");
-  var Editor = require("ace/editor").Editor;
-  var EditSession = require("ace/edit_session").EditSession;
-  var UndoManager = require("ace/undomanager").UndoManager;
-  var Renderer = require("ace/virtual_renderer").VirtualRenderer;
+  init = function ($el) {
+    var el = $el.get(0);
 
-  init = function (el) {
-    if (typeof(el) == "string") {
-      el = document.getElementById(el);
-    }
-
-    var doc = new EditSession(Dom.getInnerText(el));
-    doc.setUndoManager(new UndoManager());
+    var doc = session.create({ contents: $el.text() });
+    doc.setUndoManager(new undomanager.UndoManager());
     el.innerHTML = '';
 
-    var editor = new Editor(new Renderer(el, require("theme/engine")));
+    var editor = new edit.Editor(new renderer.VirtualRenderer(el, require("theme/engine")));
     editor.setSession(doc);
 
     var env = {};
     env.document = doc;
     env.editor = editor;
     editor.resize();
-    Event.addListener(window, "resize", function() {
+    $(window).resize(function () {
       editor.resize();
     });
     el.env = env;
@@ -44,7 +35,7 @@ function (ace,       $,        edit,               commander,          command_m
     instances: instances,
     defaults: defaults,
     create: function (spec, my) {
-      var that = init(spec.element), renderer = that.renderer, Session = edit.EditSession, command;
+      var that = init(spec.element), renderer = that.renderer, command;
       
       my = my ? my : {};
       spec = $.extend({}, defaults, spec);
@@ -84,7 +75,7 @@ function (ace,       $,        edit,               commander,          command_m
       };
 
       that.clear = function () { // This is somehow missing in the ace implementation
-        that.setSession(new Session(""));
+        that.setSession(session.create({ contents: '' }));
       };
 
       // This is absolutely required to make insertion work, as-is.
@@ -104,7 +95,7 @@ function (ace,       $,        edit,               commander,          command_m
       });
 
       that.io.emit(spec.loader, that.bufferName, function (contents, position) {
-        that.setSession(new Session(contents));
+        that.setSession(session.create({ contents: contents }));
         that.moveCursorTo(position.row, position.column);
       });
 
