@@ -13,6 +13,7 @@
                      [lacij "0.6.0"]
                      #_[clojurecheck "2.0.2"] ; broken
                      [incanter "1.3.0"]]
+  :plugins [[lein-swank "1.4.4"]]
   :resources-path "resources"
   :repl-init engine.repl-init
   :license {:name "GNU Affero General Public License v3 (or later)"

@@ -11,7 +11,10 @@ function ($,        edit,         render,                 session,          comm
     var el = spec.element.get(0), doc, renderer, editor, env;
     spec.element.empty();
     renderer = new render.VirtualRenderer(el, require(spec.theme))
+
     editor = new edit.Editor(renderer);
+    editor.setHighlightSelectedWord(false); // maybe change back later
+
     session.create(spec, { editor: editor });
 
     renderer.setShowGutter(false);
@@ -34,7 +37,7 @@ function ($,        edit,         render,                 session,          comm
     editor.io = spec.io;
     editor.bufferName = spec.bufferName;
     editor.setFontSize(spec.fontSize);
-    editor.setHighlightActiveLine(spec.highline);
+    editor.setHighlightActiveLine(spec.highline)
 
     return editor;
   };

@@ -10,7 +10,17 @@ requirejs.config({
 require(['engine/splash'], function (splash) {
   var socket, loader = splash.create({
     element: '#splash'
-  });
+  }), modules;
+
+  modules = [
+    // oldschool/shim
+    'ace/lib/fixoldbrowsers', 'jquery-ui', 'jquery.pnotify',
+    // main
+    'engine/window', 'engine/minibuffer', 'engine/socket.io', 'engine/commander',
+    'engine/buffer', 'engine/eventuality',
+    // supplementary
+    'theme/engine'
+  ];
 
   (function (modules, rest) {
     var load = function () {
@@ -26,7 +36,7 @@ require(['engine/splash'], function (splash) {
     };
 
     load.apply(null, modules);
-  }) (['ace/lib/fixoldbrowsers', 'engine/window', 'theme/engine', 'engine/minibuffer', 'engine/socket.io', 'engine/commander', 'jquery-ui', 'jquery.pnotify'], function () {
+  }) (modules, function () {
     loader.queue(5, 'Establishing WebSocket connection', function () { socket = io.connect(); });
     require(['engine/jquery', 'engine/window', 'engine/minibuffer', 'engine/socket.io', 'engine/commander'],
     function ($,               window,          minibuffer,          io,                 commander) {

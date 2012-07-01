@@ -1,35 +1,43 @@
 // -*- mode: js; indent-tabs-mode: nil; -*-
-define (['jquery', 'ace/edit_session', 'ace/document', 'ace/selection', 'ace/mode/text', 'ace/lib/event_emitter', 'ace/lib/oop'],
-function ($,        session,            document,       selection,       mode,            emitter,                 oop) {
+define (['jquery', 'ace/edit_session', 'engine/buffer',    'engine/eventuality', 'ace/mode/text'],
+function ($,        session,            buffer,             eventuality,          mode) {
+  var init = function () {
+    var that = Object.create(session.EditSession.prototype);
+
+    that.$modified = true;
+    that.$breakpoints = [];
+    that.$frontMarkers = {};
+    that.$backMarkers = {};
+    that.$markerId = 1;
+    that.$rowCache = [];
+    that.$wrapData = [];
+    that.$foldData = [];
+    that.$undoSelect = true;
+    that.$foldData.toString = function () {
+      var str = '';
+      that.forEach(function (foldLine) {
+        str += "\n" + foldLine.toString();
+      });
+      return str;
+    };
+    
+    return that;
+  };
+
   return {
     create: function (spec, my) {
-      var that = Object.create(session.EditSession.prototype, {});
-      oop.implement(that, emitter.EventEmitter);
+      var that = init();
 
-      that.$modified = true;
-      that.$breakpoints = [];
-      that.$frontMarkers = {};
-      that.$backMarkers = {};
-      that.$markerId = 1;
-      that.$rowCache = [];
-      that.$wrapData = [];
-      that.$foldData = [];
-      that.$undoSelect = true;
-      that.$foldData.toString = function() {
-        var str = "";
-        that.forEach(function(foldLine) {
-          str += "\n" + foldLine.toString();
-        });
-        return str;
-      }
-
-      spec.io.emit(spec.loader, spec.bufferName, function (contents, position) {
-        that.setDocument(new document.Document(contents));
-        that.selection = new selection.Selection(that);
-        that.selection.moveCursorTo(position.row, position.column);
-        that.setMode(new mode.Mode());
-        my.editor.setSession(that);
+      buffer.create(spec, {
+        ready: function (buffer) {
+          that.setDocument(buffer);
+          that.selection = buffer;
+          that.setMode(new mode.Mode());
+          my.editor.setSession(that);
+        }
       });
+
+      eventuality(that);
 
       return that;
     }
