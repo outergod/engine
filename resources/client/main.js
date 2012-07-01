@@ -26,7 +26,7 @@ require(['engine/splash'], function (splash) {
     };
 
     load.apply(null, modules);
-  }) (['ace/ace', 'theme/engine', 'engine/window', 'engine/minibuffer', 'engine/socket.io', 'engine/commander', 'jquery-ui', 'jquery.pnotify'], function () {
+  }) (['ace/lib/fixoldbrowsers', 'engine/window', 'theme/engine', 'engine/minibuffer', 'engine/socket.io', 'engine/commander', 'jquery-ui', 'jquery.pnotify'], function () {
     loader.queue(5, 'Establishing WebSocket connection', function () { socket = io.connect(); });
     require(['engine/jquery', 'engine/window', 'engine/minibuffer', 'engine/socket.io', 'engine/commander'],
     function ($,               window,          minibuffer,          io,                 commander) {

@@ -5,13 +5,46 @@ function (ace,       $,        edit,               commander,          command_m
       defaults = {
         loader: 'load-buffer',
         highline: true
-      };
+      }, init;
+  
+  var Dom = require("ace/lib/dom");
+  var Event = require("ace/lib/event");
+  var Editor = require("ace/editor").Editor;
+  var EditSession = require("ace/edit_session").EditSession;
+  var UndoManager = require("ace/undomanager").UndoManager;
+  var Renderer = require("ace/virtual_renderer").VirtualRenderer;
+
+  init = function (el) {
+    if (typeof(el) == "string") {
+      el = document.getElementById(el);
+    }
+
+    var doc = new EditSession(Dom.getInnerText(el));
+    doc.setUndoManager(new UndoManager());
+    el.innerHTML = '';
+
+    var editor = new Editor(new Renderer(el, require("theme/engine")));
+    editor.setSession(doc);
+
+    var env = {};
+    env.document = doc;
+    env.editor = editor;
+    editor.resize();
+    Event.addListener(window, "resize", function() {
+      editor.resize();
+    });
+    el.env = env;
+    // Store env on editor such that it can be accessed later on from
+    // the returned object.
+    editor.env = env;
+    return editor;
+  };
 
   return {
     instances: instances,
     defaults: defaults,
     create: function (spec, my) {
-      var that = ace.edit(spec.element), renderer = that.renderer, Session = edit.EditSession, command;
+      var that = init(spec.element), renderer = that.renderer, Session = edit.EditSession, command;
       
       my = my ? my : {};
       spec = $.extend({}, defaults, spec);
