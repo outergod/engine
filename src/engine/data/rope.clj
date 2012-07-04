@@ -2,7 +2,8 @@
   "Implementation of Ropes as per \"Ropes: an Alternative to Strings\"
 by Boehm, Hans-J; Atkinson, Russ; and Plass, Michael (December 1995), doi:10.1002/spe.4380251203."
   (:refer-clojure :exclude [merge])
-  (:use [clojure.string :only [join]])
+  (:use [clojure.string :only [join]]
+        [engine.data.util])
   (:require [clojure.zip :as zip])
   (:import [clojure.lang Counted Indexed Delay IDeref ILookup]
            [java.lang String IndexOutOfBoundsException]
@@ -364,10 +365,6 @@ Merge x on the left of the very first leaf node."
       (if (and left-child (zip/node left-child))
         (recur left-child)
         (-> zipper (zip/edit #(merge %2 %1) x) zip/root)))))
-
-(defn- split-lines
-  [s]
-  (seq (.split #"\n" s -1)))
 
 (defn rope-split-at-line
   "Split Rope at line

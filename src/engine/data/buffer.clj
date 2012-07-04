@@ -1,6 +1,7 @@
 (ns engine.data.buffer
   (:use engine.data.mode
-        [engine.server.command :only (command)])
+        [engine.server.command :only (command)]
+        [engine.data.util])
   (:require [engine.data.rope :as rope]
             [engine.data.cursor :as cursor]
             [clojure.tools.logging :as log])
@@ -55,7 +56,7 @@
     (let [cursor (get-in @buffers [name :cursor]),
           rope @cursor,
           [row column] (rope/translate rope (cursor/pos cursor))]
-      {:response [(str rope) {:row row :column column}]})))
+      {:response [(split-lines (str rope)) {:row row :column column}]})))
 
 (defn buffers
   ([state]
