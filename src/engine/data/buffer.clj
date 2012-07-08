@@ -16,9 +16,10 @@
   (trans [this actionfn transfn]
     (let [pre-state [@cursor (cursor/pos cursor)]]
       (dosync (let [state (-> cursor cursor/sanitize actionfn),
-                    change (transfn pre-state [@state (cursor/pos state)] name)]
-                (updatefn (assoc this :cursor state :change change))))))
-  (trans [this actionfn] (trans this actionfn (fn [& _] false)))
+                    {:keys [change response]} (transfn pre-state [@state (cursor/pos state)] name)]
+                (updatefn (assoc this :cursor state :change change))
+                response))))
+  (trans [this actionfn] (trans this actionfn (fn [& _] {:change false})))
 
   (inputfn [this]
     (keymapfn (partial trans this)))

@@ -30,8 +30,8 @@
            #{:alt :shift ","} #(syncfn cursor/beginning-of-buffer),
            #{:alt :shift "."} #(syncfn cursor/end-of-buffer),
            #{:ctrl "k"} #(syncfn cursor/kill-line command-delete-forward),
-           #{:alt "x"} (fn [& _] {:response [(command "execute-extended-command" :prompt "> " :args "")]}),
-           #{:ctrl "x"} (fn [& _] {:state {:keymap (keymap)}})}))
+           #{:alt "x"} (fn [& _] {:commands [(command "execute-extended-command" :prompt "> " :args "")]}),
+           #{:ctrl "x"} (fn [& _]  {:state {:keymap (keymap)}})}))
 
 (defn minibuffer-mode-keymap [syncfn]
   (assoc (fundamental-mode-keymap syncfn)

@@ -20,7 +20,7 @@
                         (enqueue broadcast-channel (command-load buffer)))))))
 
 (defn- load-response [buffer]
-  {:response (drop 2 (command-load buffer))})
+  {:commands (drop 2 (command-load buffer))})
 
 (def load-buffer (buffer/loader buffers load-response))
 (def load-minibuffer (buffer/loader buffers load-response :mode "minibuffer" :keymapfn minibuffer-mode-keymap))
@@ -32,14 +32,14 @@
     (if (socket-io/reserved-event-names event)
       (fun socket)
       (let [session-agent (:session socket),
-            {:keys [response state]} (fun args @session-agent)
-            {:keys [response broadcast]} (group-by #(if (:broadcast (meta %)) :broadcast :response) response)]
+            {:keys [commands state]} (fun args @session-agent)
+            {:keys [commands broadcasts]} (group-by #(if (:broadcast (meta %)) :broadcasts :commands) commands)]
         (when state (send-off session-agent into [state]))
-        (log/debug (format "Response is %s" response))
-        (when broadcast
-          (log/debug (format "Broadcasting %s" broadcast))
-          (doseq [command broadcast] (enqueue broadcast-channel command)))
-        (or response (command "noop"))))))
+        (log/debug (format "Response is %s" commands))
+        (when broadcasts
+          (log/debug (format "Broadcasting %s" broadcasts))
+          (doseq [command broadcasts] (enqueue broadcast-channel command)))
+        (or commands (command "noop"))))))
 
 (defn connect [socket]
   (let [receiver (channel)]

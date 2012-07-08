@@ -15,22 +15,22 @@
 
 (defn command-insert [before after _]
   (let [[rope1 pos1] before, [rope2 pos2] after]
-    {:action "insertText" :range {:start (position-map (rope/translate rope1 pos1)),
-                                  :end (position-map (rope/translate rope2 pos2))}}))
+    {:change {:action "insertText" :range {:start (position-map (rope/translate rope1 pos1)),
+                                           :end (position-map (rope/translate rope2 pos2))}}}))
 
 (defn command-delete-forward [before after _]
   (let [[rope1 pos] before, [rope2 _] after,
         delta (- (count rope1) (count rope2))]
-    {:action "removeText", :range {:start (position-map (rope/translate rope1 pos)),
-                                   :end (position-map (rope/translate rope1 (+ pos delta)))}}))
+    {:change {:action "removeText", :range {:start (position-map (rope/translate rope1 pos)),
+                                            :end (position-map (rope/translate rope1 (+ pos delta)))}}}))
 
 (defn command-delete-backward [before after _]
   (let [[rope1 pos1] before, [rope2 pos2] after]
-    {:action "removeText" :range {:start (position-map (rope/translate rope2 pos2)),
-                                  :end (position-map (rope/translate rope1 pos1))}}))
+    {:change {:action "removeText" :range {:start (position-map (rope/translate rope2 pos2)),
+                                           :end (position-map (rope/translate rope1 pos1))}}}))
 
 (defn command-exit [& _]
-  [(command "exit")])
+  {:response (command "exit")})
 
 (defn command-load [buffer]
   (let [{:keys [name cursor change]} buffer,
