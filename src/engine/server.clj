@@ -1,21 +1,31 @@
 (ns engine.server
   (:use lamina.core
         [clojure.string :only (blank? trim)]
-        [engine.server input command] engine.data.mode)
+        [engine.server input command]
+        engine.data.mode)
   (:require [clojure.tools.logging :as log]
             [engine.server.socket-io :as socket-io]
             [engine.data.rope :as rope]
             [engine.data.cursor :as cursor]
             [engine.data.buffer :as buffer]))
 
-(defonce buffers (buffer/buffers))
-(def load-buffer (buffer/loader buffers))
-(def load-minibuffer (buffer/loader buffers :mode "minibuffer" :keymapfn minibuffer-mode-keymap))
-(defn activate-minibuffer [[name {:keys [prompt args]}] _]
-  (buffer/trans (@buffers name) (insertfn (str prompt args)) command-insert))
-
 (def broadcast-channel (permanent-channel))
 (receive-all broadcast-channel (fn [_]))
+
+(defonce buffers
+  (buffer/buffers (fn [_ _ _ state]
+                    (let [buffer (-> (meta state) :buffer state)]
+                      (when-not (nil? (:change buffer)) ; don't broadcast new buffer state
+                        (log/debug (format "Broadcasting %s" (command-load buffer)))
+                        (enqueue broadcast-channel (command-load buffer)))))))
+
+(defn- load-response [buffer]
+  {:response (drop 2 (command-load buffer))})
+
+(def load-buffer (buffer/loader buffers load-response))
+(def load-minibuffer (buffer/loader buffers load-response :mode "minibuffer" :keymapfn minibuffer-mode-keymap))
+(defn activate-minibuffer [[name {:keys [prompt args]}] _]
+  (buffer/trans (@buffers name) (insertfn (str prompt args)) command-insert))
 
 (defn server [socket event & args]
   (when-let [fun (ns-resolve 'engine.server (symbol event))]
@@ -33,7 +43,7 @@
 
 (defn connect [socket]
   (let [receiver (channel)]
-    (receive-all receiver #(socket-io/send-event socket "broadcast" %))
+    (receive-all receiver #(socket-io/send-event socket (first %) (rest %)))
     (siphon broadcast-channel receiver)))
 
 (defn keyboard [[hash-id key key-code name] state]

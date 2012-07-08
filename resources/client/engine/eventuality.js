@@ -1,12 +1,8 @@
 // -*- mode: js; indent-tabs-mode: nil; -*-
-define (['jquery'], function ($) {
+define (['jquery', 'ace/lib/oop', 'ace/lib/event_emitter'], function ($, oop, event) {
   return function (that) {
-    that.on = function (event, callback) {
-      $(that).on(event, callback);
-    }
-
-    // ace compat API
-    that.addEventListener = that.on;
+    oop.implement(that, event.EventEmitter);
+    that.trigger = that._emit;
     
     return that;
   }

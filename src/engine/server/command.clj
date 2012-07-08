@@ -1,4 +1,5 @@
 (ns engine.server.command
+  (:use engine.data.util)
   (:require [engine.data.rope :as rope]
             [engine.data.cursor :as cursor]))
 
@@ -9,29 +10,31 @@
 (defn position-map [pos]
   (zipmap [:row :column] pos))
 
-(defn rope-delta [before after]
-  (->> [before after] (sort-by second) (map #(apply rope/translate %)) (map position-map)))
-
 (defn broadcasted [obj]
   (vary-meta obj assoc :broadcast true))
 
-(defn command-insert [before after buffer]
-  (let [[_ pos1] before, [root pos2] after]
-    [(broadcasted (command "insert-text" :position (position-map (rope/translate root pos1))
-                           :text (str (rope/report root pos1 pos2))
-                           :buffer buffer))]))
+(defn command-insert [before after _]
+  (let [[rope1 pos1] before, [rope2 pos2] after]
+    {:action "insertText" :range {:start (position-map (rope/translate rope1 pos1)),
+                                  :end (position-map (rope/translate rope2 pos2))}}))
 
-(defn command-delete-forward [before after buffer]
-  (let [delta (->> [before after] (map (comp count first)) (apply -)),
-        [root pos] before]
-    [(broadcasted (command "delete-range" :range (rope-delta before [root (+ pos delta)])
-                           :buffer buffer))]))
+(defn command-delete-forward [before after _]
+  (let [[rope1 pos] before, [rope2 _] after,
+        delta (- (count rope1) (count rope2))]
+    {:action "removeText", :range {:start (position-map (rope/translate rope1 pos)),
+                                   :end (position-map (rope/translate rope1 (+ pos delta)))}}))
 
-(defn command-delete-backward [before after buffer]
-  [(broadcasted (command "delete-range" :range (rope-delta before after)
-                         :buffer buffer))])
+(defn command-delete-backward [before after _]
+  (let [[rope1 pos1] before, [rope2 pos2] after]
+    {:action "removeText" :range {:start (position-map (rope/translate rope2 pos2)),
+                                  :end (position-map (rope/translate rope1 pos1))}}))
 
 (defn command-exit [& _]
   [(command "exit")])
+
+(defn command-load [buffer]
+  (let [{:keys [name cursor change]} buffer,
+        position (position-map (rope/translate @cursor (cursor/pos cursor)))]
+    ["buffer-update" name (-> @cursor str split-lines) position change]))
 
 (defn insertfn [s] #(cursor/insert % s))

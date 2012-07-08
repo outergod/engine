@@ -5,9 +5,9 @@ function ($,        eventuality,          range) {
     create: function (spec, my) {
       var that = {}, state = {}, update, load;
 
-      my = $.extend({}, { ready: function () {} }, my || {});
-
       eventuality(that);
+
+      my = $.extend({}, { ready: function () {} }, my || {});
 
       update = function (lines, position) {
         state = {
@@ -17,16 +17,25 @@ function ($,        eventuality,          range) {
         };
       };
 
-      load = function (name, lines, position) {
+      load = function (name, lines, position, delta) {
         if (name === spec.bufferName) {
-          update (lines, position);
+          update(lines, position);
+          if (delta) {
+            $.extend(delta, {
+              range: new range.Range(delta.range.start.row, delta.range.start.column, 
+                                     delta.range.end.row,   delta.range.end.column)
+            });
+            that.trigger('change', { data: delta });
+          } else {
+            that.trigger('changeCursor');
+          }
         }
       };
 
       that.__noSuchMethod__ = function (id, args) {
         alert('Unimplemented method '+id+' in buffer called');
       };
-
+      
       // TODO implement me
       that.isMultiLine = function () {
         // used for highlighting stuff
@@ -92,7 +101,7 @@ function ($,        eventuality,          range) {
         my.ready(that);
       });
       
-      spec.io.on('buffer-change', load);
+      spec.io.on('buffer-update', load);
 
       return that;
     }
