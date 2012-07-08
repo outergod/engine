@@ -12,7 +12,8 @@
   :dev-dependencies [[ring/ring-devel "1.1.0"]
                      [lacij "0.6.0"]
                      #_[clojurecheck "2.0.2"] ; broken
-                     [incanter "1.3.0"]]
+                     [incanter "1.3.0"]
+                     [org.clojure/tools.trace "0.7.3"]]
   :plugins [[lein-swank "1.4.4"]]
   :resources-path "resources"
   :repl-init engine.repl-init
