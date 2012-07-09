@@ -1,4 +1,4 @@
-(ns engine.server.command
+(ns engine.data.command
   (:use engine.data.util)
   (:require [engine.data.rope :as rope]
             [engine.data.cursor :as cursor]))
@@ -29,8 +29,11 @@
     {:change {:action "removeText" :range {:start (position-map (rope/translate rope2 pos2)),
                                            :end (position-map (rope/translate rope1 pos1))}}}))
 
-(defn command-exit [& _]
-  {:response (command "exit")})
+(defn command-exit [before _ _]
+  (let [[rope pos] before]
+      {:response {:commands [(command "exit")]},
+       :change {:action "removeText" :range {:start (position-map [0 0]),
+                                             :end (position-map (rope/translate rope pos))}}}))
 
 (defn command-load [buffer]
   (let [{:keys [name cursor change]} buffer,

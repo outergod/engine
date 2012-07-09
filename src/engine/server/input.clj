@@ -1,10 +1,4 @@
-(ns engine.server.input
-  (:use [clojure.string :only (blank? trim)]
-        engine.server.command))
-
-(def ^:dynamic *keymap*)
-(defn aliasfn [key]
-  #(apply (*keymap* key) %&))
+(ns engine.server.input)
 
 (defn bitmask-seq [& xs]
   (zipmap (iterate (partial * 2) 1) xs))
@@ -28,10 +22,3 @@
    39 :cursor-right,
    40 :cursor-down,
    46 :delete})
-
-(defn keymap
-  ([map]
-     (into map
-           {#{:ctrl "g"} {:response (command "noop"),
-                          :state {:keymap nil}}}))
-  ([] (keymap {})))

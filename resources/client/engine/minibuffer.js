@@ -40,7 +40,6 @@ function (window,          $) {
 
       that.deactivate = function () {
         active = false;
-        that.clear();
         if (target_editor) {
           target_editor.focus();
           target_editor = undefined;

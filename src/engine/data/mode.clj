@@ -1,6 +1,17 @@
 (ns engine.data.mode
-  (:use [engine.server input command])
+  (:use [engine.data command util])
   (:require [engine.data.cursor :as cursor]))
+
+(def ^:dynamic *keymap*)
+(defn aliasfn [key]
+  #(apply (*keymap* key) %&))
+
+(defn keymap
+  ([map]
+     (into map
+           {#{:ctrl "g"} {:response (command "noop"),
+                          :state {:keymap nil}}}))
+  ([] (keymap {})))
 
 (defn fundamental-mode-keymap [syncfn]
   (keymap {#{:backspace} #(syncfn cursor/backward-delete command-delete-backward),
@@ -30,8 +41,8 @@
            #{:alt :shift ","} #(syncfn cursor/beginning-of-buffer),
            #{:alt :shift "."} #(syncfn cursor/end-of-buffer),
            #{:ctrl "k"} #(syncfn cursor/kill-line command-delete-forward),
-           #{:alt "x"} (fn [& _] {:commands [(command "execute-extended-command" :prompt "> " :args "")]}),
-           #{:ctrl "x"} (fn [& _]  {:state {:keymap (keymap)}})}))
+           #{:alt "x"} (voidfn {:commands [(command "execute-extended-command" :prompt "> " :args "")]}),
+           #{:ctrl "x"} (voidfn {:state {:keymap (keymap)}})}))
 
 (defn minibuffer-mode-keymap [syncfn]
   (assoc (fundamental-mode-keymap syncfn)

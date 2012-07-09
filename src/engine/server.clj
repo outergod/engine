@@ -1,8 +1,8 @@
 (ns engine.server
   (:use lamina.core
         [clojure.string :only (blank? trim)]
-        [engine.server input command]
-        engine.data.mode)
+        engine.server.input
+        [engine.data command mode])
   (:require [clojure.tools.logging :as log]
             [engine.server.socket-io :as socket-io]
             [engine.data.rope :as rope]

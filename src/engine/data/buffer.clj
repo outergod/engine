@@ -1,5 +1,5 @@
 (ns engine.data.buffer
-  (:use engine.data.mode)
+  (:use [engine.data mode util])
   (:require [engine.data.rope :as rope]
             [engine.data.cursor :as cursor]
             [clojure.tools.logging :as log])
@@ -19,7 +19,7 @@
                     {:keys [change response]} (transfn pre-state [@state (cursor/pos state)] name)]
                 (updatefn (assoc this :cursor state :change change))
                 response))))
-  (trans [this actionfn] (trans this actionfn (fn [& _] {:change false})))
+  (trans [this actionfn] (trans this actionfn (voidfn {:change false})))
 
   (inputfn [this]
     (keymapfn (partial trans this)))
@@ -48,7 +48,7 @@ spec keymapfn: fn [syncfn] -> map | syncfn: fn [updatefn transfn] -> cursor"
   [^Agent buffers name & args]
   (let [update (fn [state]
                  (send buffers #(-> % (assoc name state) (vary-meta assoc :buffer name))))]
-   (update (apply buffer name update args))
+   (await (update (apply buffer name update args)))
    (@buffers name)))
 
 (defn loader

@@ -67,10 +67,6 @@ function ($,        edit,         render,                 session,          comm
         };
       };
 
-      that.clear = function () { // This is somehow missing in the ace implementation
-        that.setSession(session.create({ contents: '' }));
-      };
-
       // This is absolutely required to make insertion work, as-is.
       that.commands = commander.create({
         insertstring: function (editor, args) { // this must be *here*!

@@ -4,3 +4,6 @@
   "Like clojure.string/split-lines, but doesn't mess up trailing empty lines"
   [s]
   (seq (.split #"\n" s -1)))
+
+(defmacro voidfn [& body]
+  `(fn [& _#] ~@body))
