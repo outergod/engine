@@ -41,7 +41,7 @@
            #{:alt :shift ","} #(syncfn cursor/beginning-of-buffer),
            #{:alt :shift "."} #(syncfn cursor/end-of-buffer),
            #{:ctrl "k"} #(syncfn cursor/kill-line command-delete-forward),
-           #{:alt "x"} (voidfn {:commands [(command "execute-extended-command" :prompt "> " :args "")]}),
+           #{:alt "x"} (voidfn (commands ["execute-extended-command" :prompt "> " :args ""])),
            #{:ctrl "x"} (voidfn {:state {:keymap (keymap)}})}))
 
 (defn minibuffer-mode-keymap [syncfn]

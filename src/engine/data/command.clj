@@ -7,6 +7,9 @@
   ([fn] {:command fn})
   ([fn & args] {:command fn :args (apply hash-map args)}))
 
+(defn commands [& specs]
+  {:commands (map #(apply command %1) specs)})
+
 (defn position-map [pos]
   (zipmap [:row :column] pos))
 
@@ -31,7 +34,7 @@
 
 (defn command-exit [before _ _]
   (let [[rope pos] before]
-      {:response {:commands [(command "exit")]},
+      {:response (commands ["exit"]),
        :change {:action "removeText" :range {:start (position-map [0 0]),
                                              :end (position-map (rope/translate rope pos))}}}))
 
