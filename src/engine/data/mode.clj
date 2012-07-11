@@ -1,6 +1,8 @@
 (ns engine.data.mode
   (:use [engine.data command util])
-  (:require [engine.data.cursor :as cursor]))
+  (:require [engine.data.cursor :as cursor]
+            [clojure.tools.logging :as log]
+            [clojure.stacktrace :as stacktrace]))
 
 (def ^:dynamic *keymap*)
 (defn aliasfn [key]
@@ -44,7 +46,22 @@
            #{:alt "x"} (voidfn (commands ["execute-extended-command" :prompt "> " :args ""])),
            #{:ctrl "x"} (voidfn {:state {:keymap (keymap)}})}))
 
+(defn minibuffer-execute [syncfn]
+  (let [[name & args] (clojure.string/split (deref (syncfn)) #" +")]
+    (if (zero? (count name))
+      (merge-with concat
+                  (syncfn cursor/purge command-exit)
+                  (commands ["error-message" :message "No command name given"]))
+      (do
+        (if-let [fun (ns-resolve 'engine.server (symbol name))]
+          (try (let [result (fun args nil)]
+                 (merge-with concat (syncfn cursor/purge command-exit) result))
+               (catch Exception e
+                 (log/trace (with-out-str (stacktrace/print-stack-trace e)))
+                 (commands ["error-message" :message (format "Error executing [%s]: %s" name e)])))
+          (commands ["error-message" :message (format "No such command [%s]" name)]))))))
+
 (defn minibuffer-mode-keymap [syncfn]
   (assoc (fundamental-mode-keymap syncfn)
-    #{:return} #(syncfn cursor/purge command-exit),
+    #{:return} #(minibuffer-execute syncfn),
     #{:ctrl "g"} #(syncfn cursor/purge command-exit)))

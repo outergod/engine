@@ -1,9 +1,11 @@
 (ns engine.server
+  (:refer-clojure :exclude [load-file])
   (:use lamina.core
         [clojure.string :only (blank? trim)]
         engine.server.input
         [engine.data command mode])
   (:require [clojure.tools.logging :as log]
+            [clojure.java.io :as io]
             [engine.server.socket-io :as socket-io]
             [engine.data.rope :as rope]
             [engine.data.cursor :as cursor]
@@ -26,6 +28,13 @@
 (def load-minibuffer (buffer/loader buffers load-response :mode "minibuffer" :keymapfn minibuffer-mode-keymap))
 (defn activate-minibuffer [[name {:keys [prompt args]}] _]
   (buffer/trans (@buffers name) (insertfn (str prompt args)) command-insert))
+
+; TODO
+(defn load-file [[path] _]
+  (when-not (@buffers path)
+    (let [contents (if (.exists (io/file path)) (slurp path) "")]
+      (buffer/create-buffer buffers path :cursor (-> contents rope/string->rope (cursor/cursor 0)) :file path))) ; FIXME rope buds
+  (commands ["load" path])) 
 
 (defn server [socket event & args]
   (when-let [fun (ns-resolve 'engine.server (symbol event))]

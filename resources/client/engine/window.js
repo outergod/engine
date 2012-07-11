@@ -54,16 +54,14 @@ function ($,        edit,         render,                 session,          comm
       command = commander.create(my.commands);
       
       that.responder = function (callback) {
-        return function (response) {
-          if (Object.prototype.toString.call (response) !== '[object Array]') {
-            response = [response];
-          }
+        return function () {
+          var args = Array.prototype.slice.call(arguments)
 
-          response.forEach(function (value) {
+          args.forEach(function (value) {
             command.exec(value.command, { editor: that }, value.args);
           });
 
-          if (callback) { callback(response); }
+          if (callback) { callback(args); }
         };
       };
 

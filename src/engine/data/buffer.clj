@@ -8,7 +8,7 @@
 
 (defprotocol IBuffer
   "Buffer protocol"
-  (trans [buffer actionfn] [buffer actionfn transfn])
+  (trans [buffer] [buffer actionfn] [buffer actionfn transfn])
   (inputfn [buffer] "Input keymap function for buffer"))
 
 (defrecord Buffer [name ^Cursor cursor keymapfn updatefn change mode file]
@@ -20,10 +20,11 @@
                 (updatefn (assoc this :cursor state :change change))
                 response))))
   (trans [this actionfn] (trans this actionfn (voidfn {:change false})))
+  (trans [this] this)
 
   (inputfn [this]
     (keymapfn (partial trans this)))
-
+  
   IDeref
   (deref [_] @cursor))
 
