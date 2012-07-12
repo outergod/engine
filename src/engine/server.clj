@@ -18,7 +18,6 @@
   (buffer/buffers (fn [_ _ _ state]
                     (let [buffer (-> (meta state) :buffer state)]
                       (when-not (nil? (:change buffer)) ; don't broadcast new buffer state
-                        (log/debug (format "Broadcasting %s" (command-load buffer)))
                         (enqueue broadcast-channel (command-load buffer)))))))
 
 (defn- load-response [buffer]
@@ -27,7 +26,7 @@
 (def load-buffer (buffer/loader buffers load-response))
 (def load-minibuffer (buffer/loader buffers load-response :mode "minibuffer" :keymapfn minibuffer-mode-keymap))
 (defn activate-minibuffer [[name {:keys [prompt args]}] _]
-  (buffer/trans (@buffers name) (insertfn (str prompt args)) command-insert))
+  (buffer/trans (@buffers name) (insertfn (str prompt args)) trans-insert))
 
 ; TODO
 (defn load-file [[path] _]
@@ -46,13 +45,14 @@
         (when state (send-off session-agent into [state]))
         (log/debug (format "Response is %s" commands))
         (when broadcasts
-          (log/debug (format "Broadcasting %s" broadcasts))
           (doseq [command broadcasts] (enqueue broadcast-channel command)))
-        (or commands (command "noop"))))))
+        commands))))
 
 (defn connect [socket]
   (let [receiver (channel)]
-    (receive-all receiver #(socket-io/send-event socket (first %) (rest %)))
+    (receive-all receiver (fn [[name & args]]
+                            (log/debug (format "Broadcasting %s %s" name args))
+                            (socket-io/send-event socket name args)))
     (siphon broadcast-channel receiver)))
 
 (defn keyboard [[hash-id key key-code name] state]
@@ -67,7 +67,7 @@
       (binding [*keymap* keymap] (handler))
       (if (or key-code (blank? key))
         {:state {:keymap nil}}
-        (buffer/trans buffer (insertfn key) command-insert)))))
+        (buffer/trans buffer (insertfn key) trans-insert)))))
 
 (defn synchronized-mouse-left [name position]
   (let [{:keys [row column]} position]

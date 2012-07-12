@@ -5,17 +5,15 @@ function (window,          $) {
     bufferName: '*minibuffer*', 
     loader: 'load-minibuffer', 
     highline: false 
-  };
-
-  var commands = {
-    exit: function (env) {
-      env.editor.deactivate();
+  }, actions = {
+    'exit': function () {
+      this.deactivate();
     }
   };
 
   return {
     create: function (spec) {
-      var that = window.create($.extend({}, opts, spec), { commands: commands }),
+      var that = window.create($.extend({}, opts, spec), { actions: actions }),
           active = false, _focus = that.focus, target_editor;
 
       that.focus = function () {
@@ -30,12 +28,12 @@ function (window,          $) {
         }
       };
 
-      that.activate = function (env, args) { 
-        that.io.emit('activate-minibuffer', that.bufferName, args, that.responder(function () {
+      that.activate = function (target, args) {
+        that.io.emit('activate-minibuffer', that.bufferName, args, function () {
           active = true;
-          target_editor = env.editor;
+          target_editor = window.instances[target];
           that.focus();
-        }));
+        });
       };
 
       that.deactivate = function () {

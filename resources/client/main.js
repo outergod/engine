@@ -38,18 +38,18 @@ require(['engine/splash'], function (splash) {
     load.apply(null, modules);
   }) (modules, function () {
     loader.queue(5, 'Establishing WebSocket connection', function () { socket = io.connect(); });
-    require(['engine/jquery', 'engine/window', 'engine/minibuffer', 'engine/socket.io', 'engine/commander'],
-    function ($,               window,          minibuffer,          io,                 commander) {
+    require(['engine/jquery', 'engine/window', 'engine/minibuffer', 'engine/socket.io'],
+    function ($,               window,          minibuffer,          io) {
       loader.queue(65, 'Creating GUI', function () {
-        var editor, minibuffer_editor, command;
+        var editor, minibuffer_editor;
 
-        command = commander.create();
-
-        socket.on('broadcast', function (data) {
-          var editor = window.instances[data.args.buffer];
-          if (editor) {
-            command.exec(data.command, { editor: editor }, data.args);
-          }
+        socket.on('error-message', function (message, title) {
+          $.pnotify({
+            title: title,
+            type: 'error',
+            icon: 'ui-icon ui-icon-script',
+            text: message
+          });
         });
 
         minibuffer_editor = minibuffer.create({
@@ -59,7 +59,7 @@ require(['engine/splash'], function (splash) {
           fontSize: '13px'
         });
 
-        $.extend(commander.defaults.commands, { 'execute-extended-command': minibuffer_editor.activate });
+        socket.on('execute-extended-command', minibuffer_editor.activate);
 
         editor = window.create({
           element: $('#editor'),

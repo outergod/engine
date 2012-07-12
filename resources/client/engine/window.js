@@ -46,29 +46,24 @@ function ($,        edit,         render,                 session,          comm
     instances: instances,
     defaults: defaults,
     create: function (spec, my) {
-      var that, command;
+      var that, actions = {};
       
       my = my ? my : {};
       spec = $.extend({}, defaults, spec);
       that = init(spec);
-      command = commander.create(my.commands);
+      $.extend(actions, my.actions);
       
-      that.responder = function (callback) {
-        return function () {
-          var args = Array.prototype.slice.call(arguments)
-
-          args.forEach(function (value) {
-            command.exec(value.command, { editor: that }, value.args);
-          });
-
-          if (callback) { callback(args); }
-        };
+      that.responder = function () {
+        var args = Array.prototype.slice.call(arguments), fn = args.shift();
+        if (actions[fn] && typeof actions[fn] === 'function') {
+          actions[fn].apply(that, args);
+        }
       };
 
       // This is absolutely required to make insertion work, as-is.
       that.commands = commander.create({
         insertstring: function (editor, args) { // this must be *here*!
-          editor.io.emit('keyboard', 0, args, undefined, editor.bufferName, that.responder());
+          editor.io.emit('keyboard', 0, args, undefined, editor.bufferName, that.responder);
         }
       });
 
@@ -76,7 +71,7 @@ function ($,        edit,         render,                 session,          comm
         //console.log('got ' + hashId + ' [' + textOrKey + '] ' + keyCode);
 
         if (keyCode !== undefined) {
-          that.io.emit('keyboard', hashId, textOrKey, keyCode, that.bufferName, that.responder());
+          that.io.emit('keyboard', hashId, textOrKey, keyCode, that.bufferName, that.responder);
         }
 
         return hashId === 0 || hashId === 4 ? {} : { command: 'noop' }; // noop prevents propagation of e.g. ctrl+r; empty object return still propagates event -> insertstring
@@ -85,7 +80,7 @@ function ($,        edit,         render,                 session,          comm
       ['mousedown', 'dblclick', 'tripleclick', 'quadclick'].forEach (function (ev) {
         that.on(ev, function (e) {
           if (e.type == 'mousedown') {
-            e.editor.io.emit('mouse', e.type, e.getButton(), e.getDocumentPosition(), that.bufferName, that.responder());
+            e.editor.io.emit('mouse', e.type, e.getButton(), e.getDocumentPosition(), that.bufferName, that.responder);
           }
           return e.preventDefault();
         });

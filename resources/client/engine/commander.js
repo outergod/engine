@@ -3,10 +3,7 @@ define (['jquery', 'ace/commands/command_manager', 'ace/range'],
 function ($,        command,                        range) {
   var defaults = { 
     commands: {
-      'noop': function () {}, // only here to stop event propagation
-      'error-message': function (env, args) {
-        alert(args.message);
-      }
+      'noop': function () {} // only here to stop event propagation
     }
   };
 
