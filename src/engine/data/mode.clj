@@ -11,8 +11,11 @@
 (defn keymap
   ([map]
      (into map
-           {#{:ctrl "g"} {:state {:keymap nil}}}))
+           {#{:ctrl "g"} #(state-keymap nil)}))
   ([] (keymap {})))
+
+(defn ctrl-x-keymap [syncfn]
+  (keymap {#{:ctrl "f"} #(commands (command-execute (syncfn) "load-file"))}))
 
 (defn fundamental-mode-keymap [syncfn]
   (keymap {#{:backspace} #(syncfn cursor/backward-delete trans-delete-backward),
@@ -42,11 +45,12 @@
            #{:alt :shift ","} #(syncfn cursor/beginning-of-buffer),
            #{:alt :shift "."} #(syncfn cursor/end-of-buffer),
            #{:ctrl "k"} #(syncfn cursor/kill-line trans-delete-forward),
-           #{:alt "x"} (voidfn (commands (broadcasted ["execute-extended-command" (:name (syncfn)) {:prompt "> " :args ""}]))),
-           #{:ctrl "x"} (voidfn {:state {:keymap (keymap)}})}))
+           #{:alt "x"} #(commands (command-execute (syncfn))),
+           #{:ctrl "x"} #(state-keymap (ctrl-x-keymap syncfn))}))
 
 (defn minibuffer-execute [syncfn]
   (let [[name & args] (clojure.string/split (deref (syncfn)) #" +")]
+    (log/debug (format "Minibuffer invoked to execute %s %s" name args))
     (if (zero? (count name))
       (merge-with concat
              (syncfn cursor/purge trans-exit)
