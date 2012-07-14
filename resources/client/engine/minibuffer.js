@@ -29,11 +29,15 @@ function (window,          $) {
       };
 
       that.activate = function (target, args) {
-        that.io.emit('activate-minibuffer', that.bufferName, args, function () {
-          active = true;
-          target_editor = window.instances[target];
+        if (active) {
           that.focus();
-        });
+        } else {
+          that.io.emit('activate-minibuffer', that.bufferName, args, function () {
+            active = true;
+            target_editor = window.instances[target];
+            that.focus();
+          });
+        }
       };
 
       that.deactivate = function () {
