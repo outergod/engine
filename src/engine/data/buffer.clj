@@ -3,7 +3,7 @@
   (:require [engine.data.rope :as rope]
             [engine.data.cursor :as cursor]
             [clojure.tools.logging :as log])
-  (:import [engine.data.cursor Cursor]
+  (:import [engine.data.cursor Cursory]
            [clojure.lang IDeref Agent]))
 
 (defprotocol IBuffer
@@ -11,7 +11,7 @@
   (trans [buffer] [buffer actionfn] [buffer actionfn transfn])
   (inputfn [buffer] "Input keymap function for buffer"))
 
-(defrecord Buffer [name ^Cursor cursor keymapfn updatefn change mode file]
+(defrecord Buffer [name ^Cursory cursor updatefn change mode file]
   IBuffer
   (trans [this actionfn transfn]
     (let [pre-state [@cursor (cursor/pos cursor)]]
@@ -23,7 +23,7 @@
   (trans [this] this)
 
   (inputfn [this]
-    (keymapfn (partial trans this)))
+    ((keymapfn mode) (partial trans this)))
   
   IDeref
   (deref [_] @cursor))
@@ -36,8 +36,8 @@
 
 spec keymapfn: fn [syncfn] -> map | syncfn: fn [updatefn transfn] -> cursor"
   [name updatefn & {:keys [cursor keymapfn mode file]
-                    :or {cursor (cursor/cursor "" 0) keymapfn fundamental-mode-keymap}}]
-  (Buffer. name cursor keymapfn updatefn nil mode file))
+                    :or {cursor (cursor/cursor "" 0), mode :fundamental-mode}}]
+  (Buffer. name cursor updatefn nil mode file))
 
 (defn buffer?
   "Is x a Buffer?"

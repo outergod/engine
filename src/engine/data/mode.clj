@@ -4,6 +4,8 @@
             [clojure.tools.logging :as log]
             [clojure.stacktrace :as stacktrace]))
 
+(defmulti keymapfn identity)
+
 (def ^:dynamic *keymap*)
 (defn aliasfn [key]
   #(apply (*keymap* key) %&))
@@ -48,6 +50,12 @@
            #{:alt "x"} #(commands (command-execute (syncfn))),
            #{:ctrl "x"} #(state-keymap (ctrl-x-keymap syncfn))}))
 
+(defmethod keymapfn :default [_]
+  fundamental-mode-keymap)
+
+(defmethod keymapfn ::fundamental-mode [_]
+  fundamental-mode-keymap)
+
 (defn minibuffer-execute [syncfn]
   (let [[name & args] (clojure.string/split (deref (syncfn)) #" +")]
     (log/debug (format "Minibuffer invoked to execute %s %s" name args))
@@ -68,3 +76,8 @@
   (assoc (fundamental-mode-keymap syncfn)
     #{:return} #(minibuffer-execute syncfn),
     #{:ctrl "g"} #(syncfn cursor/purge trans-exit)))
+
+(derive ::minibuffer-mode ::fundamental-mode)
+
+(defmethod keymapfn ::minibuffer-mode [_]
+  minibuffer-mode-keymap)
