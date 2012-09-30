@@ -10,3 +10,4 @@ pom.xml
 /out
 *.log
 /target
+/ideas
