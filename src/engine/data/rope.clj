@@ -5,7 +5,7 @@ by Boehm, Hans-J; Atkinson, Russ; and Plass, Michael (December 1995), doi:10.100
   (:use [clojure.string :only [join]]
         [engine.data.util])
   (:require [clojure.zip :as zip])
-  (:import [clojure.lang Counted Indexed Delay IDeref ILookup]
+  (:import [clojure.lang Counted Indexed Delay IDeref ILookup IPersistentCollection]
            [java.lang String IndexOutOfBoundsException]
            [java.io File RandomAccessFile]))
 
@@ -16,8 +16,8 @@ by Boehm, Hans-J; Atkinson, Russ; and Plass, Michael (December 1995), doi:10.100
 (defprotocol Measurable
   "Trivial protocol for things measurable
 
-Default implementations are provided for nil and String; nil measures as 0
-characters, 0 lines. Strings get analyzed accordingly."
+Default implementations are provided for nil and string; nil measures as 0
+characters, 0 lines. strings get analyzed accordingly."
   (measure [object] "Measure object"))
 
 (defn measurable?
@@ -62,9 +62,9 @@ characters, 0 lines. Strings get analyzed accordingly."
 
 
 (defprotocol Treeish-2-3
-  "Protocol describing 2-3-Trees, such as Ropes
+  "Protocol describing 2-3-Trees, such as ropes
 
-Default implementations for nil and String exist."
+  Default implementations for nil and string exist."
   (split [tree pred] "Split tree by pred")
   (conc [tree1 tree2] "Concatenate tree1 and tree2")
   (left [tree] "Left child of tree")
@@ -89,8 +89,8 @@ Default implementations for nil and String exist."
 (defn weigh
   "The accumulated measurement of all children to the right
 
-Provided that Treeish-2-3 is implemented for seq.
-In other words: What a new Treeish-2-3 node would weigh with seq as its left child."
+  Provided that Treeish-2-3 is implemented for seq.
+  In other words: What a new Treeish-2-3 node would weigh with seq as its left child."
   [seq]
   {:pre [(measurable? seq)]}
   (if (and (treeish-2-3? seq) (right seq)) ; no child on the right? not required to weigh again
@@ -98,7 +98,7 @@ In other words: What a new Treeish-2-3 node would weigh with seq as its left chi
     (measure seq)))
 
 (defmulti cat
-  "Concatenation of two Ropes, including Strings which are treated as leafes"
+  "Concatenation of two ropes, including strings which are treated as leafes"
   (fn [rope1 rope2] [(type rope1) (type rope2)]))
 
 (extend-type nil
@@ -128,25 +128,25 @@ In other words: What a new Treeish-2-3 node would weigh with seq as its left chi
 (deftype Rope [#^CharSequence left #^CharSequence right #^CharSequenceMeasurement weight #^int level])
 
 (defn rope?
-  "Is x a Rope?"
+  "Is x a rope?"
   [x]
   (instance? Rope x))
 
 (defn rope
-  "New Rope that concatenates the given arguments, if any"
+  "New rope that concatenates the given arguments, if any"
   ([] (Rope. nil nil (measurement 0 0) 0))
   ([seq] (Rope. seq nil (weigh seq) (inc (depth seq))))
   ([seq1 seq2] (Rope. seq1 seq2 (weigh seq1) (inc (max (depth seq1) (depth seq2))))))
 
 (defn- rooted
-  "Evaluate to properly rooted Rope without a right child, if necessary"
+  "Evaluate to properly rooted rope without a right child, if necessary"
   [root]
   (if (and (rope? root) (nil? (right root)))
     root
     (rope root)))
 
 (defn rope-zip
-  "Creates Zipper structures for Ropes, starting from root"
+  "Creates Zipper structures for ropes, starting from root"
   [root]
   (zip/zipper rope?
               (fn [node] (filter identity [(left node) (right node)]))
@@ -154,7 +154,7 @@ In other words: What a new Treeish-2-3 node would weigh with seq as its left chi
               root))
 
 (defn- rope-nth-node
-  "Vector of zip node and rest index of Rope at index"
+  "Vector of zip node and rest index of rope at index"
   [root index]
   (loop [zipper (rope-zip root) l-index index]
     (if zipper
@@ -168,32 +168,32 @@ In other words: What a new Treeish-2-3 node would weigh with seq as its left chi
       (throw (IndexOutOfBoundsException. (str "Rope index out of range: " index))))))
 
 (defn rope-nth
-  "Evaluates to character at position index in the Rope at root in O(log n) time"
+  "Evaluates to character at position index in the rope at root in O(log n) time"
   [root index]
   (let [[zipper index] (rope-nth-node root index)]
     (nth (zip/node zipper) index)))
 
 (defn rope-seq
-  "Lazy sequence of all Rope nodes at root, depth-first order"
+  "Lazy sequence of all rope nodes at root, depth-first order"
   [root]
   (for [node (iterate zip/next (rope-zip root)) :while (not (zip/end? node))]
     (zip/node node)))
 
 (defn rope-reverse-seq
-  "Lazy reverse sequence of all Rope nodes from the end of root, depth-first order"
+  "Lazy reverse sequence of all rope nodes from the end of root, depth-first order"
   [root]
   (let [[end _] (rope-nth-node root (dec (count root)))]
     (for [node (iterate zip/prev end) :while (zip/up node)]
       (zip/node node))))
 
 (defn index-of
-  "The position of the first match in Rope
+  "The position of the first match in rope
 
-Or nil, if none or not applicable.
-f is passed each leaf node and should evaluate to either an integer, if
-matching should stop and the total position returned by taking the callback
-result into account, or boolean true if index-of should continue, and lastly
-nil, to abort matching and have index-of evaluate to nil altogether."
+  Or nil, if none or not applicable.
+  f is passed each leaf node and should evaluate to either an integer, if
+  matching should stop and the total position returned by taking the callback
+  result into account, or boolean true if index-of should continue, and lastly
+  nil, to abort matching and have index-of evaluate to nil altogether."
   [root f]
   (loop [leafes (filter leaf? (rope-seq root)), acc ""]
     (when-let [leaf (first leafes)]
@@ -203,21 +203,21 @@ nil, to abort matching and have index-of evaluate to nil altogether."
               :default nil)))))
 
 (defn index-of-char
-  "The position of the first matching char in Rope
+  "The position of the first matching char in rope
 
-Resembles String's indexOf."
+  Resembles string's indexOf."
   [root char]
   (index-of root (fn [s _] (let [result (.indexOf s (str char))]
                              (or (= -1 result) result)))))
 
 (defn last-index-of
-  "The position of the last match in Rope
+  "The position of the last match in rope
 
-Or nil, if none or not applicable.
-f is passed each leaf node and should evaluate to either an integer, if
-matching should stop and the total position returned by taking the callback
-result into account, or boolean true if last-index-of should continue, and
-lastly nil, to abort matching and have index-of evaluate to nil altogether."
+  Or nil, if none or not applicable.
+  f is passed each leaf node and should evaluate to either an integer, if
+  matching should stop and the total position returned by taking the callback
+  result into account, or boolean true if last-index-of should continue, and
+  lastly nil, to abort matching and have index-of evaluate to nil altogether."
   [root f]
   (loop [leafes (filter leaf? (rope-reverse-seq root)), acc ""]
     (when-let [leaf (first leafes)]
@@ -227,17 +227,17 @@ lastly nil, to abort matching and have index-of evaluate to nil altogether."
               :default nil)))))
 
 (defn last-index-of-char
-  "The position of the last matching char in Rope
+  "The position of the last matching char in rope
 
-Resembles String's lastIndexOf."
+  Resembles string's lastIndexOf."
   [root char]
   (last-index-of root (fn [s _] (let [result (.lastIndexOf s (str char))]
                                   (or (= -1 result) result)))))
 
 (defn rope-split-at
-  "Split Rope at index
+  "Split rope at index
 
-The additional remaining string index will be the fourth vector element"
+  The additional remaining string index will be the fourth vector element"
   [root index]
   (if (= (count root) index)
     [root "" (rope) 0]
@@ -246,9 +246,9 @@ The additional remaining string index will be the fourth vector element"
       [left-rope string right-rope position])))
 
 (defn rope-partition
-  "Partition for Ropes
+  "Partition for ropes
 
-Each list element is comprised of the left Rope and rest String of a split operation."
+  Each list element is comprised of the left rope and rest string of a split operation."
   [n coll]
   (lazy-seq
    (cond (zero? (count coll)) nil
@@ -258,18 +258,18 @@ Each list element is comprised of the left Rope and rest String of a split opera
            (cons [left-rope string] (rope-partition n right-rope))))))
 
 (defn rope->string
-  "Flat String from Rope"
+  "Flat string from rope"
   [root]
   (let [build #(apply str (->> (rope-seq %) (filter leaf?))),
         step (-> (count root) (/ cpus) Math/ceil long (max 1))]
     (->> root (rope-partition step) (pmap (fn [[r s]] (str (build r) s))) (apply str))))
 
 (defn rebalance
-  "Rebalanced copy of the Rope provided
+  "Rebalanced copy of the rope provided
 
-Using the algorithm described in \"Ropes: an Alternative to Strings\".
-The implementation does not resemble the one from the paper, but is instead
-idiomatic Clojure and optimized for functional languages in general."
+  Using the algorithm described in \"Ropes: an Alternative to Strings\".
+  The implementation does not resemble the one from the paper, but is instead
+  idiomatic Clojure and optimized for functional languages in general."
   [root]
   (let [fold (fn [coll] (reduce rope (reverse coll)))
         fib-border (fn [limit] (->> fib-seq (take-while #(>= limit %)) last))]
@@ -290,10 +290,10 @@ idiomatic Clojure and optimized for functional languages in general."
       (rebalance new-rope))))
 
 (defn string->rope
-  "Fresh Rope from flat string
+  "Fresh rope from flat string
 
-The resulting leafes will carry at most *leaf-cutoff-length* characters of the
-input string."
+  The resulting leafes will carry at most *leaf-cutoff-length* characters of the
+  input string."
   [string]
   (letfn [(build [acc]
             (if (> (count acc) 1)
@@ -311,14 +311,14 @@ input string."
      string)))
 
 (defn rope-split
-  "Split Rope at root by calling pred against the accumulated weights and nodes traversed so far
+  "Split rope at root by calling pred against the accumulated weights and nodes traversed so far
 
-Pred should evaluate to a truthy value whenever the weight or node should be
-traversed to the right, i.e. towards higher weights.
-The vector returned is composed of the re-evaluated tree to the left of the
-split, the actual split leaf, a reassembled tree of the nodes cut off to the
-right of the traversal and the measurement traversed, i.e. the weight of the
-left tree plus the split leaf."
+  Pred should evaluate to a truthy value whenever the weight or node should be
+  traversed to the right, i.e. towards higher weights.
+  The vector returned is composed of the re-evaluated tree to the left of the
+  split, the actual split leaf, a reassembled tree of the nodes cut off to the
+  right of the traversal and the measurement traversed, i.e. the weight of the
+  left tree plus the split leaf."
   [root pred]
   (let [reassemble (fn [coll]
                      (if (empty? coll)
@@ -341,10 +341,10 @@ left tree plus the split leaf."
 
 ;; Presumably faster than iterating till zip/end?
 (defn conjoin
-  "conj for Ropes
+  "conj for ropes
 
-x is concatenated to the depth-first end, i.e. rightmost node of the Rope.
-Additional xs will be concatenated first."
+  x is concatenated to the depth-first end, i.e. rightmost node of the rope.
+  Additional xs will be concatenated first."
   ([root x]
      {:pre [(rope? root)]}
      (loop [zipper (rope-zip root)]
@@ -358,7 +358,7 @@ Additional xs will be concatenated first."
 (defn lconjoin [root x]
   "Left conjoin
 
-Merge x on the left of the very first leaf node."
+  Merge x on the left of the very first leaf node."
   {:pre [(rope? root)]}
   (loop [zipper (rope-zip root)]
     (let [left-child (zip/down zipper)]
@@ -367,10 +367,10 @@ Merge x on the left of the very first leaf node."
         (-> zipper (zip/edit #(merge %2 %1) x) zip/root)))))
 
 (defn rope-split-at-line
-  "Split Rope at line
+  "Split rope at line
 
-The resulting vector consists of the left rope, lines left of the target line,
-then the same for everything right of the line."
+  The resulting vector consists of the left rope, lines left of the target line,
+  then the same for everything right of the line."
   [root index]
   (let [[left-rope string right-rope _] (split root (fn [weight _] (> index (:lines weight)))),
         position (- index (:lines (measure left-rope))),
@@ -378,7 +378,7 @@ then the same for everything right of the line."
     [left-rope left-lines line right-lines right-rope]))
 
 (defn split-merge
-  "Split Rope at index and merge back node chunks"
+  "Split rope at index and merge back node chunks"
   [root index]
   {:pre [(rope? root)]}
   (let [[l s r p] (rope-split-at root index),
@@ -386,7 +386,7 @@ then the same for everything right of the line."
     [(conjoin l ls) (lconjoin r rs)]))
 
 (defn insert
-  "Insert string in Rope at index or line/column"
+  "Insert string in rope at index or line/column"
   ([root index string]
      (rooted
       (if (= index (count root))
@@ -403,7 +403,7 @@ then the same for everything right of the line."
                       right-rope)))))
 
 (defn translate
-  "Translate between Rope measurements"
+  "Translate between rope measurements"
   ([root row column]
      {:pre [(>= row 0) (>= column 0)]}
      (if (> row (-> root measure :lines))
@@ -430,7 +430,7 @@ then the same for everything right of the line."
            [(+ rope-weight weight), (-> lines last count)])))))
 
 (defn report
-  "Report in O(log n) time for Ropes, the equivalent of string subs"
+  "Report in O(log n) time for ropes, the equivalent of string subs"
   ([root start]
      (if (= start (count root))
        "" ; For consistency with "normal" subs
@@ -459,7 +459,7 @@ then the same for everything right of the line."
        (report root (translate root start-line start-column) (translate root end-line end-column)))))
 
 (defn delete
-  "Delete the characters at interval [start..end] in the Rope"
+  "Delete the characters at interval [start..end] in the rope"
   ([root start end]
      {:pre [(>= (- end start) 0)]}
      (cond
@@ -483,7 +483,7 @@ then the same for everything right of the line."
        (delete root (translate root start-line start-column) (translate root end-line end-column)))))
 
 (defn delete-line
-  "Delete the line at index in the Rope"
+  "Delete the line at index in the rope"
   [root index]
   (delete root index 0 (inc index) 0))
 
@@ -523,7 +523,16 @@ then the same for everything right of the line."
     (if (number? key)
       (try (nth this key)
            (catch Exception _ not-found))
-      not-found)))
+      not-found))
+
+  IPersistentCollection
+  (empty [_] (rope))
+  (equiv [this o]
+    (cond
+     (string? o) (= (str this) o)
+     (rope? o) (and (= left (.left o))
+                    (= right (.right o)))
+     :default false)))
 
 (defmethod print-method Rope [rope writer]
   (print-simple (format "#<Rope %s>" (->> (measure rope) vals (join "/"))) writer))
@@ -596,7 +605,7 @@ then the same for everything right of the line."
     (concat (butlast coll) [[(-> coll last first) (dec end)]])))
 
 (defn file->rope
-  "Fresh Rope from file"
+  "Fresh rope from file"
   [path]
   (let [file (File. path), size (.length file),
         step (-> size (/ cpus) Math/ceil long (max 1))]
