@@ -43,7 +43,7 @@ require(['engine/splash'], function (splash) {
       loader.queue(65, 'Creating GUI', function () {
         var editor, minibuffer_editor;
 
-        socket.on('error-message', function (message, title) {
+        socket.on('error-message', function (title, message) {
           $.pnotify({
             title: title,
             type: 'error',

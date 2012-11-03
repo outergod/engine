@@ -2,7 +2,8 @@
   (:use engine.data.rope
         lacij.graph.core lacij.graph.svg.graph lacij.layouts.layout
         [engine.core :only [defdispatcher]])
-  (:require [clojure.zip :as zip])
+  (:require [clojure.zip :as zip]
+            [engine.data.cursor :as cursor])
   (:import java.io.StringWriter
            javax.xml.transform.dom.DOMSource
            javax.xml.transform.stream.StreamResult
@@ -85,4 +86,10 @@
                                 (rope (rope (rope (rope "Hello " "my "))
                                             (rope (rope (rope "na" "me i") (rope "s")) (rope (rope " Simon")))))
                                 "->> "))
+                   (layout :hierarchical) build view svgdoc->string))
+
+(svgdispatcher "/devel/cursor.svg"
+               (-> (create-graph)
+                   (add-default-node-attrs :r 45 :shape :circle)
+                   (rope-graph (-> (rope) (insert 0 "> load-file")))
                    (layout :hierarchical) build view svgdoc->string))

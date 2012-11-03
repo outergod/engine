@@ -389,11 +389,9 @@ characters, 0 lines. strings get analyzed accordingly."
   "Insert string in rope at index or line/column"
   ([root index string]
      (rooted
-      (if (= index (count root))
-        (conc root string)
-        (let [[left-rope target right-rope position] (rope-split-at root index)]
-          (merge (conjoin left-rope (subs target 0 position) string (subs target position))
-                 right-rope)))))
+      (let [[left-rope target right-rope position] (rope-split-at root index)]
+        (merge (conjoin left-rope (subs target 0 position) string (subs target position))
+               right-rope))))
   ([root line column string]
      (let [[left-rope left-lines line right-lines right-rope] (rope-split-at-line root line)]
        (rooted (merge (conjoin left-rope
