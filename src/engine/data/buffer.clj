@@ -1,29 +1,35 @@
+;;;; Engine - buffer.clj
+;;;; Copyright (C) 2012  Alexander Kahl <e-user@fsfe.org>
+;;;; This file is part of Engine.
+;;;; Engine is free software; you can redistribute it and/or modify it
+;;;; under the terms of the GNU Affero General Public License as
+;;;; published by the Free Software Foundation; either version 3 of the
+;;;; License, or (at your option) any later version.
+;;;;
+;;;; Engine is distributed in the hope that it will be useful,
+;;;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;;;; GNU General Public License for more details.
+;;;;
+;;;; You should have received a copy of the GNU General Public License
+;;;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 (ns engine.data.buffer
+  (:refer-clojure :exclude [sync])
   (:use [engine.data mode util])
-  (:require [engine.data.rope :as rope]
-            [engine.data.cursor :as cursor]
+  (:require [engine.data.cursor :as cursor]
             [clojure.tools.logging :as log])
   (:import [engine.data.cursor Cursor]
-           [clojure.lang IDeref Agent]))
+           [clojure.lang IDeref Agent]
+           java.util.UUID))
 
 (defprotocol IBuffer
   "Buffer protocol"
-  (trans [buffer] [buffer actionfn] [buffer actionfn transfn])
-  (inputfn [buffer] "Input keymap function for buffer"))
+  (sync [buffer]))
 
-(defrecord Buffer [name ^Cursor cursor keymapfn updatefn change mode file]
+(defrecord Buffer [^Agent owner id ^Cursor cursor name]
   IBuffer
-  (trans [this actionfn transfn]
-    (let [pre-state [@cursor (cursor/pos cursor)]]
-      (dosync (let [state (-> cursor cursor/sanitize actionfn),
-                    {:keys [change response]} (transfn pre-state [@state (cursor/pos state)] name)]
-                (updatefn (assoc this :cursor state :change change))
-                response))))
-  (trans [this actionfn] (trans this actionfn (voidfn {:change false})))
-  (trans [this] this)
-
-  (inputfn [this]
-    (keymapfn (partial trans this)))
+  (sync [this]
+    (send owner #(assoc % id this)))
   
   IDeref
   (deref [_] @cursor))
@@ -31,52 +37,43 @@
 (defmethod print-method Buffer [buffer writer]
   (print-simple (format "#<Buffer %s -> %s>" (:name buffer) (pr-str (:cursor buffer))) writer))
 
-(defn buffer
-  "New buffer from given arguments
-
-spec keymapfn: fn [syncfn] -> map | syncfn: fn [updatefn transfn] -> cursor"
-  [name updatefn & {:keys [cursor keymapfn mode file]
-                    :or {cursor (cursor/cursor "" 0) keymapfn fundamental-mode-keymap}}]
-  (Buffer. name cursor keymapfn updatefn nil mode file))
-
 (defn buffer?
-  "Is x a Buffer?"
+  "Is x a buffer?"
   [x]
   (instance? Buffer x))
 
+(defn buffer
+  "Buffer from given arguments"
+  [^Agent owner id ^Cursor cursor name]
+  (Buffer. owner id cursor name))
+
+(defn- new-id
+  "New random, unique ID"
+  []
+  (str (UUID/randomUUID)))
+
 (defn create-buffer
-  "New buffer from given arguments that is also stored in buffers agent"
-  [^Agent buffers name & args]
-  (let [update (fn [state]
-                 (send buffers #(-> % (assoc name state) (vary-meta assoc :buffer name))))]
-   (await (update (apply buffer name update args)))
-   (@buffers name)))
-
-(defn loader
-  "Function that creates new buffers on demand and evaluates to their state
-
-spec callback: fn [buffer] -> command"
-  [^Agent buffers callback & opts]
-  (fn [[name] _]
-    (callback
-     (or (@buffers name)
-         (apply create-buffer buffers name :cursor (cursor/cursor "" 0) opts)))))
-
+  "Buffer from given arguments that is also stored in buffers agent"
+  [^Agent buffers & args]
+  (let [id (new-id)]
+   (await (sync (apply buffer buffers id args)))
+   (@buffers id)))
+ 
 (defn buffers
   "New buffers agent from state
 
-Or only with scratch buffer, if not given."
+  Or preloaded with scratch buffer, if no state given."
   ([watchfn state]
      (let [buffers (agent state
-                          :validator #(and (map? %1)
-                                           (and (every? string? (keys %1))
-                                                (every? buffer? (vals %1)))),
-                          :error-mode :continue,
-                          :error-handler (fn [_ e]
-                                           (log/error "Attempted to set buffers agent to illegal state:" e)))]
+                   :validator #(and (map? %1)
+                                    (and (every? string? (keys %1))
+                                         (every? buffer? (vals %1)))),
+                   :error-mode :continue,
+                   :error-handler (fn [_ e]
+                                    (log/error "Attempted to set buffers agent to illegal state:" e)))]
        (add-watch buffers nil watchfn)
        buffers))
   ([watchfn]
      (let [buffers (buffers watchfn {})]
-       (create-buffer buffers "*scratch*" :cursor (cursor/cursor "This is the scratch buffer." 0))
+       (create-buffer buffers (cursor/cursor "This is the scratch buffer." 0) "*scratch*")
        buffers)))

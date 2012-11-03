@@ -15,9 +15,9 @@
   ([] (keymap {})))
 
 (defn fundamental-mode-keymap [syncfn]
-  (keymap {#{:backspace} #(syncfn cursor/backward-delete trans-delete-backward),
-           #{:return} #(syncfn (insertfn "\n") trans-insert),
-           #{:space} #(syncfn (insertfn " ") trans-insert),
+  (keymap {#{:backspace} #(syncfn cursor/backward-delete),
+           #{:return} #(syncfn (insertfn "\n")),
+           #{:space} #(syncfn (insertfn " ")),
            #{:shift :space} (aliasfn #{:space}),
            #{:cursor-left} #(syncfn cursor/backward-char),
            #{:ctrl "b"} #(syncfn cursor/backward-char),
@@ -27,7 +27,7 @@
            #{:ctrl "f"} #(syncfn cursor/forward-char),
            #{:cursor-down} #(syncfn cursor/next-line),
            #{:ctrl "n"} #(syncfn cursor/next-line),
-           #{:ctrl "d"} #(syncfn cursor/forward-delete trans-delete-forward),
+           #{:ctrl "d"} #(syncfn cursor/forward-delete),
            #{:delete} (aliasfn #{:ctrl "d"}),
            #{:home} #(syncfn cursor/move-beginning-of-line),
            #{:ctrl "a"} #(syncfn cursor/move-beginning-of-line),
@@ -37,11 +37,11 @@
            #{:alt "f"} #(syncfn cursor/forward-word),
            #{:ctrl :cursor-left} #(syncfn cursor/backward-word),
            #{:alt "b"} #(syncfn cursor/backward-word),
-           #{:alt "d"} #(syncfn cursor/forward-kill-word trans-delete-forward),
-           #{:alt :backspace} #(syncfn cursor/backward-kill-word trans-delete-backward),
+           #{:alt "d"} #(syncfn cursor/forward-kill-word),
+           #{:alt :backspace} #(syncfn cursor/backward-kill-word),
            #{:alt :shift ","} #(syncfn cursor/beginning-of-buffer),
            #{:alt :shift "."} #(syncfn cursor/end-of-buffer),
-           #{:ctrl "k"} #(syncfn cursor/kill-line trans-delete-forward),
+           #{:ctrl "k"} #(syncfn cursor/kill-line),
            #{:alt "x"} (voidfn (commands (broadcasted ["execute-extended-command" (:name (syncfn)) {:prompt "> " :args ""}]))),
            #{:ctrl "x"} (voidfn {:state {:keymap (keymap)}})}))
 

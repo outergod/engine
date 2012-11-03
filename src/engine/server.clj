@@ -1,3 +1,18 @@
+;;;; Engine - server.clj
+;;;; Copyright (C) 2012  Alexander Kahl <e-user@fsfe.org>
+;;;; This file is part of Engine.
+;;;; Engine is free software; you can redistribute it and/or modify it
+;;;; under the terms of the GNU Affero General Public License as
+;;;; published by the Free Software Foundation; either version 3 of the
+;;;; License, or (at your option) any later version.
+;;;;
+;;;; Engine is distributed in the hope that it will be useful,
+;;;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;;;; GNU General Public License for more details.
+;;;;
+;;;; You should have received a copy of the GNU General Public License
+;;;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 (ns engine.server
   (:refer-clojure :exclude [load-file])
   (:use lamina.core
@@ -26,7 +41,7 @@
 (def load-buffer (buffer/loader buffers load-response))
 (def load-minibuffer (buffer/loader buffers load-response :mode "minibuffer" :keymapfn minibuffer-mode-keymap))
 (defn activate-minibuffer [[name {:keys [prompt args]}] _]
-  (buffer/trans (@buffers name) (insertfn (str prompt args)) trans-insert))
+  (buffer/trans (@buffers name) (insertfn (str prompt args))))
 
 ; TODO
 (defn load-file [[path] _]
@@ -67,7 +82,7 @@
       (binding [*keymap* keymap] (handler))
       (if (or key-code (blank? key))
         {:state {:keymap nil}}
-        (buffer/trans buffer (insertfn key) trans-insert)))))
+        (buffer/trans buffer (insertfn key))))))
 
 (defn synchronized-mouse-left [name position]
   (let [{:keys [row column]} position]
