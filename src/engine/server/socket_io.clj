@@ -1,5 +1,5 @@
 (ns engine.server.socket-io
-  (:use [aleph.http :only [request-cookie request-params wrap-aleph-handler]]
+  (:use [aleph.http :only [wrap-aleph-handler]]
         [aleph.formats :only [encode-json->string decode-json]]
         lamina.core
         net.cgrand.moustache

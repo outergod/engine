@@ -144,7 +144,7 @@
   (insert [this s]
     (dosync (alter root rope/insert position s))
     (conj-history (cursor root (+ position (count s)) history)
-                  [:add (count s)]))
+                  [:add (rope/translate @root position)]))
 
   (forward [this f]
     (let [[_ r] (rope/split-merge @root position)]
@@ -163,7 +163,7 @@
           :default this))
 
   (conclude [this]
-    [(dissoc this :history) history])
+    [(assoc this :history nil) history])
 
   (start? [_]
     (= 0 position))
@@ -201,7 +201,7 @@
   "Match string against regular expression, evaluating to the end of the last match
 
   If end? is false and the end of string is hit (i.e. $, not just the last char
-  before), literal true is returned to denote that scanning can continue againts
+  before), literal true is returned to denote that scanning can continue against
   subsequent partial strings.
 
   If back? is true, perform a reverse scan. The regular expression has to be

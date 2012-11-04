@@ -38,10 +38,11 @@
 (defn- load-response [buffer]
   {:commands (drop 2 (command-load buffer))})
 
-(def load-buffer (buffer/loader buffers load-response))
-(def load-minibuffer (buffer/loader buffers load-response :mode :minibuffer-mode))
-(defn activate-minibuffer [[name {:keys [prompt args]}] _]
-  (buffer/trans (@buffers name) (insertfn (str prompt args))))
+;; TODO
+;; (def load-buffer (buffer/loader buffers load-response))
+;; (def load-minibuffer (buffer/loader buffers load-response :mode :minibuffer-mode))
+;; (defn activate-minibuffer [[name {:keys [prompt args]}] _]
+;;   (buffer/trans (@buffers name) (insertfn (str prompt args))))
 
 ; TODO
 (defn load-file [[path] _]

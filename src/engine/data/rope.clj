@@ -1,7 +1,6 @@
 (ns engine.data.rope
   "Implementation of Ropes as per \"Ropes: an Alternative to Strings\"
 by Boehm, Hans-J; Atkinson, Russ; and Plass, Michael (December 1995), doi:10.1002/spe.4380251203."
-  (:refer-clojure :exclude [merge])
   (:use [clojure.string :only [join]]
         [engine.data.util])
   (:require [clojure.zip :as zip])
@@ -72,7 +71,7 @@ characters, 0 lines. strings get analyzed accordingly."
   (depth [tree] "Depth of tree")
   (leaf? [tree] "Is tree a leaf?"))
 
-(defn- merge
+(defn- merge-2-3
   "Merge two objects from a 2-3-tree perspective"
   [obj1 obj2]
   (let [count1 (count obj1), count2 (count obj2)]
@@ -351,9 +350,9 @@ characters, 0 lines. strings get analyzed accordingly."
        (let [left-child (zip/down zipper), right-child (zip/right left-child)]
          (cond (and right-child (zip/node right-child)) (recur right-child)
                (and left-child (zip/node left-child)) (recur left-child)
-               :default (-> zipper (zip/edit #(merge %1 %2) x) zip/root)))))
+               :default (-> zipper (zip/edit #(merge-2-3 %1 %2) x) zip/root)))))
   ([root x & xs]
-     (conjoin root (reduce merge x xs))))
+     (conjoin root (reduce merge-2-3 x xs))))
 
 (defn lconjoin [root x]
   "Left conjoin
@@ -364,7 +363,7 @@ characters, 0 lines. strings get analyzed accordingly."
     (let [left-child (zip/down zipper)]
       (if (and left-child (zip/node left-child))
         (recur left-child)
-        (-> zipper (zip/edit #(merge %2 %1) x) zip/root)))))
+        (-> zipper (zip/edit #(merge-2-3 %2 %1) x) zip/root)))))
 
 (defn rope-split-at-line
   "Split rope at line
@@ -390,15 +389,15 @@ characters, 0 lines. strings get analyzed accordingly."
   ([root index string]
      (rooted
       (let [[left-rope target right-rope position] (rope-split-at root index)]
-        (merge (conjoin left-rope (subs target 0 position) string (subs target position))
-               right-rope))))
+        (merge-2-3 (conjoin left-rope (subs target 0 position) string (subs target position))
+                   right-rope))))
   ([root line column string]
      (let [[left-rope left-lines line right-lines right-rope] (rope-split-at-line root line)]
-       (rooted (merge (conjoin left-rope
-                               (apply str (interpose \n left-lines))
-                               "\n" (subs line 0 column) string (subs line column)
-                               (apply str (interpose \n right-lines)))
-                      right-rope)))))
+       (rooted (merge-2-3 (conjoin left-rope
+                                   (apply str (interpose \n left-lines))
+                                   "\n" (subs line 0 column) string (subs line column)
+                                   (apply str (interpose \n right-lines)))
+                          right-rope)))))
 
 (defn translate
   "Translate between rope measurements"
@@ -467,12 +466,12 @@ characters, 0 lines. strings get analyzed accordingly."
         (rope)
         (let [[left-rope part _ position] (rope-split-at root start),
               snippet (subs part 0 position)]
-          (rooted (merge left-rope snippet))))
+          (rooted (merge-2-3 left-rope snippet))))
       :default
       (let [[left-rope part1 _ position1] (rope-split-at root start)
             [_ part2 right-rope position2] (rope-split-at root end),
             new-left (conjoin left-rope (subs part1 0 position1) (subs part2 position2))]
-        (rooted (merge new-left right-rope)))))
+        (rooted (merge-2-3 new-left right-rope)))))
   ([root start-line start-column end-line end-column]
      {:pre [(>= (- end-line start-line) 0)]}
      (if (and (= start-line end-line)

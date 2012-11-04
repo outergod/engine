@@ -14,8 +14,7 @@
 ;;;; You should have received a copy of the GNU General Public License
 ;;;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 (ns engine.core
-  (:use [lamina.core :only (enqueue async)]
-        aleph.http
+  (:use aleph.http
         [ring.middleware.stacktrace :only (wrap-stacktrace)]
         [ring.middleware.session :only (wrap-session)]
         [net.cgrand.moustache :only (app)]

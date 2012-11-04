@@ -19,25 +19,23 @@
             :url "http://www.gnu.org/licenses/agpl-3.0.html"
             :distribution :repo}
   :dependencies [[org.clojure/clojure "1.4.0"]
-                 [aleph "0.2.1-rc1"]
-                 [ring/ring-core "1.1.0"]
-                 [net.cgrand/moustache "1.0.0"]
+                 [aleph "0.3.0-beta6"]
+                 [ring/ring-core "1.1.6"]
+                 [net.cgrand/moustache "1.1.0"]
                  [compojure "0.6.4"]
                  [hiccup "1.0.0"]
-                 [cssgen "0.2.5"]
-                 [org.clojure/tools.logging "0.2.3"]
+                 [cssgen "0.2.6"]
+                 [org.clojure/tools.logging "0.2.4"]
                  [clj-logging-config "1.9.6"]]
   :profiles {:dev
              {:dependencies
-              [[org.clojure/tools.nrepl "0.2.0-beta9"]
-               [ring/ring-devel "1.1.0"]
+              [[org.clojure/tools.nrepl "0.2.0-beta10"]
+               [ring/ring-devel "1.1.6"]
                [lacij "0.6.0"]
                #_[clojurecheck "2.0.2"] ; broken
-               [incanter "1.3.0"]
+               #_[incanter "1.3.0"] ; dep missing org.mongodb:mongo-java-driver:pom:2.6.5
                [org.clojure/tools.trace "0.7.3"]
                [midje "1.4.0"]]}}
-  :plugins [[lein-swank "1.4.4"]
-            [lein-midje "1.0.10"]]
   :resources-path "resources"
-  :repl-options { :init-ns engine.repl-init }
+  :repl-options { :init (require 'engine.repl-init) :port 1337 }
   :min-lein-version "2.0.0")
